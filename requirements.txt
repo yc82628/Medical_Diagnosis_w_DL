@@ -1,0 +1,51 @@
+# Core runtime dependencies.
+#   pip install -r requirements.txt
+#
+# On Linux this is all you need: the default PyPI torch wheel already bundles
+# CUDA (it pulls ~3-4 GB of nvidia-* runtime wheels with it).
+#
+# On WINDOWS the default wheel is CPU-only -- see requirements-gpu.txt.
+# For a slim CPU-only install (CI, laptops, editing code) see requirements-cpu.txt.
+#
+# Verify after installing:  python -c "import torch; print(torch.cuda.is_available())"
+
+# --- deep learning ---------------------------------------------------------
+# >=2.4: torch.amp.GradScaler("cuda") is the non-deprecated form used in
+# train.py. Older releases require torch.cuda.amp.GradScaler.
+torch>=2.4,<3.0
+torchvision>=0.19,<1.0
+
+# --- image pipeline --------------------------------------------------------
+# HEADLESS, deliberately. Two reasons, both learned the hard way:
+#
+#   1. albumentations depends on opencv-python-headless. If you also install
+#      opencv-python, BOTH land in the same site-packages/cv2/ path and
+#      overwrite each other. Which one you end up importing depends on install
+#      order, so the bug appears on one machine and not another.
+#   2. The GUI build needs libGL, which is absent from slim Docker images and
+#      most CI runners -- the classic "ImportError: libGL.so.1" at container start.
+#
+# This project uses no cv2 GUI calls (verified: no imshow/waitKey/namedWindow),
+# only imread/imwrite/resize/GaussianBlur/Laplacian and friends.
+#
+# >=4.10 is the first release supporting numpy 2.x.
+opencv-python-headless>=4.10,<5.0
+
+# >=2.0 is REQUIRED, not preferred. The 2.0 API rename is a breaking change
+# that dataset.py depends on:
+#   RandomResizedCrop(size=(h, w))   -- was height=/width=
+#   Affine(fill=..., border_mode=)   -- was cval=
+# On albumentations 1.x these calls raise TypeError at import of the transform.
+albumentations>=2.0,<3.0
+
+# --- data / metrics --------------------------------------------------------
+numpy>=1.26,<3.0
+pandas>=2.0,<3.0
+
+# >=1.3: IsotonicRegression exposes X_thresholds_ / y_thresholds_, which
+# Calibrator.to_dict() serialises so the fitted calibrator can be shipped
+# alongside the checkpoint.
+scikit-learn>=1.3,<2.0
+
+# --- misc ------------------------------------------------------------------
+tqdm>=4.65

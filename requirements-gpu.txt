@@ -1,0 +1,36 @@
+# Platform-specific PyTorch builds.
+#
+# Read this before assuming you need it -- the correct answer differs by OS,
+# and the common advice ("always use the pytorch index URL") is wrong on Linux.
+#
+# ---------------------------------------------------------------------------
+# LINUX
+#   Nothing to do. The default PyPI wheel ALREADY bundles CUDA; a plain
+#   `pip install -r requirements.txt` pulls torch plus the nvidia-* CUDA
+#   runtime wheels (~3-4 GB). You only need this file if you want a DIFFERENT
+#   CUDA version than the bundled default, or a CPU-only build (see below).
+#
+# WINDOWS
+#   The default PyPI wheel IS CPU-only. You need the index URL below, or
+#   torch.cuda.is_available() will return False on a perfectly good GPU.
+#
+# macOS
+#   No CUDA. The default wheel supports MPS (Apple Silicon) already; get_device()
+#   in model.py picks it up automatically. Do not use this file.
+# ---------------------------------------------------------------------------
+#
+# Pick the tag matching your driver (check with: nvidia-smi):
+#   cu118 / cu121 / cu124 / cu126 / cu128
+#
+#   pip install -r requirements-gpu.txt
+#   pip install -r requirements.txt
+#
+# Silent-failure warning: if you end up on a CPU build by accident, nothing
+# errors. get_device() prints "CPU" and a 512px EfficientNet-B3 epoch that
+# should take ~4 minutes takes hours instead. Always confirm:
+#
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch>=2.4,<3.0
+torchvision>=0.19,<1.0

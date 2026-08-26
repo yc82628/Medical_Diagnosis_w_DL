@@ -1,0 +1,12 @@
+# Development / CI dependencies.
+#   pip install -r requirements.txt -r requirements-dev.txt
+#
+# The test suite in tests/ is torch-free by design: splits.py and metrics.py
+# carry the leakage and evaluation logic, so CI can verify the parts that
+# actually invalidate results without installing a 2 GB GPU stack.
+
+pytest>=7.4
+
+# Linting. pyflakes catches the stale-import and placeholder-less-f-string
+# class of bug that is otherwise invisible until runtime.
+ruff>=0.6

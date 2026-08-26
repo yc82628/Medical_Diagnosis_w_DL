@@ -1,0 +1,19 @@
+# CPU-only PyTorch. Install BEFORE requirements.txt:
+#
+#   pip install -r requirements-cpu.txt
+#   pip install -r requirements.txt
+#
+# Use this for CI, for running the test suite, or for laptop development where
+# you are editing code rather than training. Saves the ~3-4 GB of nvidia-*
+# CUDA wheels that the default Linux torch wheel drags in.
+#
+# You cannot realistically train at 512px on CPU. This is for code paths, not
+# experiments.
+#
+# Note: tests/ does not import torch at all by design, so for the test suite
+# you can skip torch entirely:
+#   pip install numpy pandas scikit-learn pytest opencv-python-headless
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.4,<3.0
+torchvision>=0.19,<1.0

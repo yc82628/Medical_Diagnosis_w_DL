@@ -1,0 +1,14 @@
+# Serving layer for the grading platform (service.py + webapp/).
+#
+#   pip install -r requirements.txt -r requirements-serve.txt
+#   python service.py
+#
+# Kept separate from requirements.txt so training and CI environments stay lean
+# -- they do not need a web server.
+#
+# The platform runs WITHOUT a trained checkpoint. It falls back to a labelled
+# demo predictor so the interface can be demonstrated before training finishes.
+
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9      # required by FastAPI for file uploads
