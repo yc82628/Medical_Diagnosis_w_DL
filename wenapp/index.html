@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retinal Screening — Grader Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#101419; --panel:#171C24; --raise:#1E242E; --line:#2A323E;
+  --text:#E6EAF0; --muted:#8C97A8; --faint:#5C6675;
+  --amber:#E9A445;          /* fundus tissue — the one accent */
+  --refer:#E4695C; --routine:#4CB08A; --review:#7BA0D9;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --cond:'IBM Plex Sans Condensed',var(--sans);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+.eyebrow{
+  font-family:var(--cond);font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint);
+}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- scope banner ---------- */
+#scope{
+  background:linear-gradient(90deg,#2A1E14,#241A12);
+  border-bottom:1px solid #4A3520;padding:9px 20px;
+  display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+}
+#scope b{color:var(--amber);font-weight:600;letter-spacing:.04em}
+#scope span{color:#C9A87C;font-size:12.5px}
+
+/* ---------- top bar ---------- */
+header{
+  display:flex;align-items:center;gap:22px;padding:14px 20px;
+  border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:11px;margin-right:auto}
+.brand h1{font-size:16px;font-weight:600;margin:0;letter-spacing:-.01em}
+.brand .sub{color:var(--faint);font-size:12px}
+.meta{display:flex;gap:22px;flex-wrap:wrap}
+.meta div{display:flex;flex-direction:column;gap:2px}
+.meta .v{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 108px)}
+#rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+#stage{padding:22px 26px;overflow-y:auto}
+
+/* ---------- dropzone ---------- */
+#drop{
+  margin:14px;padding:22px 16px;border:1.5px dashed var(--line);border-radius:8px;
+  text-align:center;color:var(--muted);transition:border-color .15s,background .15s;
+}
+#drop.hot{border-color:var(--amber);background:rgba(233,164,69,.06)}
+#drop strong{display:block;color:var(--text);font-weight:500;margin-bottom:4px}
+#drop small{font-size:12px;color:var(--faint)}
+#pick{
+  margin-top:12px;background:var(--raise);color:var(--text);border:1px solid var(--line);
+  padding:7px 14px;border-radius:6px;
+}
+#pick:hover{border-color:var(--amber);color:var(--amber)}
+
+/* ---------- worklist ---------- */
+.railhead{padding:4px 16px 10px;display:flex;justify-content:space-between;align-items:baseline}
+#list{overflow-y:auto;flex:1;min-height:0;padding-bottom:12px}
+.case{
+  display:grid;grid-template-columns:3px 1fr auto;gap:11px;align-items:center;
+  padding:11px 16px 11px 0;border-bottom:1px solid rgba(42,50,62,.55);
+  cursor:pointer;transition:background .12s;
+}
+.case:hover{background:rgba(255,255,255,.026)}
+.case.on{background:rgba(233,164,69,.08)}
+.case .bar{height:100%;min-height:34px;border-radius:0 2px 2px 0}
+.case .fn{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.case .st{font-size:11px;color:var(--faint);margin-top:1px}
+.case .p{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.REFER{--c:var(--refer)} .ROUTINE{--c:var(--routine)} .MANUAL_REVIEW{--c:var(--review)}
+.case .bar{background:var(--c)}
+.tag{
+  display:inline-block;font-family:var(--cond);font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;padding:2.5px 7px;border-radius:3px;
+  color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 35%,transparent);
+}
+
+/* ---------- empty ---------- */
+.empty{text-align:center;color:var(--faint);padding:70px 30px;max-width:440px;margin:0 auto}
+.empty h2{font-family:var(--cond);font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+
+/* ---------- case view ---------- */
+.top{display:flex;gap:16px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap}
+.top h2{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:26px;align-items:start}
+figure{margin:0}
+.imgwrap{position:relative;line-height:0}
+figure img{width:100%;border-radius:8px;border:1px solid var(--line);display:block;background:#000}
+.cam-layer{position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;border-color:transparent}
+.cam-layer.on{opacity:1}
+.figbar{display:flex;align-items:center;gap:12px;margin-top:8px}
+.cambtn{background:var(--raise);color:var(--text);border:1px solid var(--line);
+  padding:6px 12px;border-radius:6px;font-size:12.5px;white-space:nowrap}
+.cambtn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+.cambtn.active{background:color-mix(in srgb,var(--amber) 18%,transparent);border-color:var(--amber);color:var(--amber)}
+.cambtn:disabled{opacity:.5;cursor:not-allowed}
+.cambtn.loading{color:var(--faint)}
+figcaption{color:var(--faint);font-size:11.5px;font-family:var(--mono);margin:0}
+.camnote{color:var(--faint);font-size:11.5px;margin:8px 0 0;line-height:1.5}
+.camnote.warn{color:var(--review)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:17px 18px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-family:var(--cond);font-size:11px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+/* ---------- SIGNATURE: decision axis ---------- */
+.axis{margin:6px 0 4px}
+.axiswrap{position:relative;height:34px;margin:26px 0 8px}
+.track{
+  position:absolute;inset:auto 0 12px;height:9px;border-radius:5px;overflow:hidden;
+  background:var(--raise);display:flex;
+}
+.zone{height:100%}
+.zone.r{background:linear-gradient(90deg,rgba(76,176,138,.55),rgba(76,176,138,.3))}
+.zone.a{background:repeating-linear-gradient(-45deg,rgba(123,160,217,.5) 0 5px,rgba(123,160,217,.22) 5px 10px)}
+.zone.f{background:linear-gradient(90deg,rgba(228,105,92,.32),rgba(228,105,92,.62))}
+.opline{position:absolute;bottom:8px;width:1.5px;height:17px;background:var(--text);opacity:.65}
+.opline::after{
+  content:attr(data-l);position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9.5px;color:var(--muted);white-space:nowrap;
+}
+.marker{
+  position:absolute;bottom:4px;width:3px;height:25px;background:var(--amber);
+  border-radius:2px;box-shadow:0 0 11px rgba(233,164,69,.75);
+  transition:left .55s cubic-bezier(.3,.9,.35,1);
+}
+.marker::after{
+  content:attr(data-v);position:absolute;top:-19px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--amber);
+}
+.axlabels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+ul.reasons{margin:0;padding-left:17px;color:var(--muted);font-size:13px}
+ul.reasons li{margin-bottom:5px}
+ul.reasons li:last-child{margin-bottom:0}
+
+table.kv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.kv td{padding:5px 0;border-bottom:1px solid rgba(42,50,62,.5);vertical-align:top}
+table.kv td:first-child{color:var(--faint);width:44%}
+table.kv td:last-child{font-family:var(--mono);text-align:right}
+table.kv tr:last-child td{border-bottom:none}
+
+/* ---------- verdict ---------- */
+.vbtns{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+.vb{
+  flex:1;min-width:104px;background:var(--raise);border:1px solid var(--line);
+  color:var(--text);padding:10px 12px;border-radius:7px;font-weight:500;
+  transition:border-color .13s,color .13s,background .13s;
+}
+.vb:hover{border-color:var(--c,var(--amber));color:var(--c,var(--amber))}
+.vb.sel{background:color-mix(in srgb,var(--c) 17%,transparent);border-color:var(--c);color:var(--c)}
+input[type=text]{
+  width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);
+  padding:9px 11px;border-radius:6px;font-family:inherit;font-size:13px;
+}
+input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:transparent}
+#save{
+  margin-top:11px;width:100%;background:var(--amber);color:#181206;border:none;
+  padding:11px;border-radius:7px;font-weight:600;
+}
+#save:disabled{background:var(--raise);color:var(--faint);cursor:not-allowed}
+.trail{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.trail div{padding:6px 0;border-bottom:1px solid rgba(42,50,62,.5)}
+.trail div:last-child{border-bottom:none}
+
+/* ---------- summary strip ---------- */
+#summary{display:flex;gap:26px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
+#summary div{display:flex;flex-direction:column}
+#summary .v{font-family:var(--mono);font-size:16px;font-weight:500}
+
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:960px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}
+  #rail{border-right:none;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+
+<div id="scope">
+  <b>Research software — not a medical device</b>
+  <span>Referral triage only. Every output requires review by a qualified grader. Detects referable diabetic retinopathy; does not assess glaucoma, AMD, or other pathology.</span>
+</div>
+
+<header>
+  <div class="brand">
+    <h1>Retinal Screening</h1>
+    <span class="sub">Grader review</span>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<main>
+  <aside id="rail">
+    <div id="drop">
+      <strong>Drop fundus images here</strong>
+      <small>PNG, JPG or TIFF — multiple accepted</small><br>
+      <button id="pick">Choose files</button>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+    </div>
+    <div class="railhead">
+      <span class="eyebrow">Worklist</span>
+      <span class="eyebrow" id="count"></span>
+    </div>
+    <div id="list"></div>
+    <div id="summary"></div>
+  </aside>
+
+  <section id="stage">
+    <div class="empty">
+      <h2>No case selected</h2>
+      <p>Add fundus images to build a worklist. Cases needing human review appear first, then likely referrals — not upload order.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (p,o) => fetch(p,o).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
+let SYS = null, CASES = [], CURRENT = null, PICKED = null;
+
+const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review', UNGRADABLE:'Ungradable'};
+const pct = v => v == null ? '—' : (v*100).toFixed(0) + '%';
+
+/* ---------- system ---------- */
+async function loadSystem(){
+  SYS = await api('/api/system');
+  $('#meta').innerHTML = `
+    <div><span class="eyebrow">Mode</span><span class="v" style="color:${SYS.mode==='DEMO'?'var(--amber)':'var(--routine)'}">${SYS.mode}</span></div>
+    <div><span class="eyebrow">Model</span><span class="v">${SYS.model_version}</span></div>
+    <div><span class="eyebrow">Operating point</span><span class="v">${SYS.operating_point?.toFixed(3) ?? '—'}</span></div>
+    <div><span class="eyebrow">Preprocessing</span><span class="v">${SYS.preprocess_fingerprint}</span></div>`;
+  if (SYS.mode === 'DEMO'){
+    $('#scope').innerHTML = `<b>Demo mode — outputs are not from a trained model</b>
+      <span>${SYS.note} Research software, not a medical device.</span>`;
+  }
+}
+
+/* ---------- upload ---------- */
+const drop = $('#drop');
+['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add('hot');
+}));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove('hot');
+}));
+drop.addEventListener('drop', ev => upload([...ev.dataTransfer.files]));
+$('#pick').onclick = () => $('#file').click();
+$('#file').onchange = e => upload([...e.target.files]);
+
+async function upload(files){
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  if (!imgs.length) return;
+  drop.querySelector('strong').textContent = `Reading ${imgs.length} image${imgs.length>1?'s':''}…`;
+  let first = null;
+  for (const f of imgs){
+    const fd = new FormData(); fd.append('file', f);
+    try {
+      const r = await api('/api/predict', {method:'POST', body:fd});
+      first = first || r.case_id;
+    } catch(e){
+      drop.querySelector('strong').textContent = e.detail || 'Could not read that file';
+      await new Promise(r => setTimeout(r, 2600));
+    }
+  }
+  drop.querySelector('strong').textContent = 'Drop fundus images here';
+  await refresh();
+  if (first) select(first);
+}
+
+/* ---------- worklist ---------- */
+async function refresh(){
+  CASES = (await api('/api/cases')).cases;
+  $('#count').textContent = CASES.length ? `${CASES.length} case${CASES.length>1?'s':''}` : '';
+  $('#list').innerHTML = CASES.map(c => `
+    <div class="case ${c.decision} ${c.case_id===CURRENT?'on':''}" data-id="${c.case_id}" tabindex="0">
+      <div class="bar"></div>
+      <div>
+        <div class="fn">${c.filename || c.case_id}</div>
+        <div class="st">${LABEL[c.decision]}${c.latest_verdict ? ' · graded ' + LABEL[c.latest_verdict] : ''}</div>
+      </div>
+      <div class="p">${pct(c.probability)}</div>
+    </div>`).join('');
+  $('#list').querySelectorAll('.case').forEach(el => {
+    el.onclick = () => select(el.dataset.id);
+    el.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); select(el.dataset.id); } };
+  });
+
+  const s = await api('/api/summary');
+  $('#summary').innerHTML = `
+    <div><span class="eyebrow">Refer</span><span class="v" style="color:var(--refer)">${s.refer}</span></div>
+    <div><span class="eyebrow">Routine</span><span class="v" style="color:var(--routine)">${s.routine}</span></div>
+    <div><span class="eyebrow">Human review</span><span class="v" style="color:var(--review)">${s.manual_review}</span></div>
+    <div><span class="eyebrow">Agreement</span><span class="v">${s.agreement_rate==null?'—':pct(s.agreement_rate)}</span></div>`;
+}
+
+/* ---------- SIGNATURE: decision axis ---------- */
+function axis(p){
+  const op = SYS.operating_point ?? 0.5;
+  const lo = SYS.abstain_low, hi = SYS.abstain_high;
+  const band = (lo!=null && hi!=null);
+  const L = band ? lo*100 : op*100;
+  const R = band ? hi*100 : op*100;
+  const has = p != null;
+  return `
+  <div class="axis">
+    <div class="axiswrap">
+      <div class="track">
+        <div class="zone r" style="width:${L}%"></div>
+        <div class="zone a" style="width:${R-L}%"></div>
+        <div class="zone f" style="width:${100-R}%"></div>
+      </div>
+      <div class="opline" style="left:${op*100}%" data-l="operating point ${op.toFixed(2)}"></div>
+      ${has ? `<div class="marker" data-v="${(p*100).toFixed(0)}%" style="left:${p*100}%"></div>` : ''}
+    </div>
+    <div class="axlabels"><span>0.0 &nbsp;no referable DR</span><span>referable DR&nbsp; 1.0</span></div>
+    <div class="legend">
+      <span><i style="background:rgba(76,176,138,.55)"></i>Routine</span>
+      ${band ? `<span><i style="background:rgba(123,160,217,.45)"></i>Abstention band — sent to a human</span>` : ''}
+      <span><i style="background:rgba(228,105,92,.55)"></i>Refer</span>
+    </div>
+  </div>`;
+}
+
+/* ---------- case detail ---------- */
+async function select(id){
+  CURRENT = id; PICKED = null;
+  $('#list').querySelectorAll('.case').forEach(e => e.classList.toggle('on', e.dataset.id===id));
+  const c = await api('/api/cases/' + id);
+  const p = c.payload, q = p.quality || {};
+
+  $('#stage').innerHTML = `
+    <div class="top">
+      <h2>${c.filename || id}</h2>
+      <span class="tag ${c.decision}">${LABEL[c.decision]}</span>
+      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">case ${id}</span>
+    </div>
+    <div class="grid">
+      <figure>
+        <div class="imgwrap">
+          <img id="baseImg" src="/api/cases/${id}/image" alt="Fundus photograph for case ${id}">
+          <img id="camImg" class="cam-layer" alt="Grad-CAM attention overlay">
+        </div>
+        <div class="figbar">
+          <button id="camBtn" class="cambtn">Show attention map</button>
+          <figcaption>${c.gradable ? 'Passed the gradability check' : 'Failed the gradability check'} · ${c.latency_ms.toFixed(0)} ms</figcaption>
+        </div>
+        <p id="camNote" class="camnote"></p>
+      </figure>
+      <div>
+        <div class="card">
+          <h3>Decision</h3>
+          ${axis(c.probability)}
+          <ul class="reasons">${(p.reasons||[]).map(r => `<li>${r}</li>`).join('')}</ul>
+        </div>
+
+        <div class="card">
+          <h3>Grader verdict</h3>
+          <div class="vbtns">
+            <button class="vb REFER"   data-v="REFER">Refer</button>
+            <button class="vb ROUTINE" data-v="ROUTINE">Routine</button>
+            <button class="vb MANUAL_REVIEW" data-v="UNGRADABLE">Ungradable</button>
+          </div>
+          <input type="text" id="grader" placeholder="Your name or ID" autocomplete="off">
+          <button id="save" disabled>Record verdict</button>
+          ${c.verdicts.length ? `<h3 style="margin-top:17px">Audit trail</h3>
+            <div class="trail">${c.verdicts.map(v =>
+              `<div>${v.created_utc} · ${LABEL[v.verdict]||v.verdict} · ${v.grader||'unattributed'}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}</div>`).join('')}</div>` : ''}
+        </div>
+
+        <div class="card">
+          <h3>Image quality</h3>
+          <table class="kv">
+            <tr><td>Gradable</td><td style="color:${c.gradable?'var(--routine)':'var(--review)'}">${c.gradable?'Yes':'No'}</td></tr>
+            <tr><td>Field of view</td><td>${q.fov_fraction!=null?q.fov_fraction.toFixed(2):'—'}</td></tr>
+            <tr><td>Sharpness</td><td>${q.blur_var!=null?q.blur_var.toFixed(1):'—'}</td></tr>
+            <tr><td>Mean intensity</td><td>${q.mean_intensity!=null?q.mean_intensity.toFixed(1):'—'}</td></tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Provenance</h3>
+          <table class="kv">
+            <tr><td>Model</td><td>${c.model_version}</td></tr>
+            <tr><td>Preprocessing</td><td>${c.preprocess_fp}</td></tr>
+            <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
+            <tr><td>Indicative ICDR grade</td><td>${c.grade ?? '—'}</td></tr>
+            <tr><td>Recorded</td><td>${c.created_utc}</td></tr>
+            <tr><td>Image hash</td><td>${c.image_sha256}</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  $('#stage').querySelectorAll('.vb').forEach(b => b.onclick = () => {
+    PICKED = b.dataset.v;
+    $('#stage').querySelectorAll('.vb').forEach(x => x.classList.toggle('sel', x===b));
+    $('#save').disabled = false;
+  });
+  $('#save').onclick = async () => {
+    if (!PICKED) return;
+    $('#save').disabled = true; $('#save').textContent = 'Recording…';
+    await api(`/api/cases/${id}/verdict`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({verdict:PICKED, grader:$('#grader').value || null})
+    });
+    await refresh(); await select(id);
+  };
+
+  setupGradcam(id, c);
+}
+
+// Grad-CAM toggle. The overlay is fetched once, on first request, then cached
+// as an object URL for instant toggling. State is honest: disabled with a
+// reason when an explanation would be misleading, rather than a dead button.
+function setupGradcam(id, c){
+  const btn = $('#camBtn'), cam = $('#camImg'), note = $('#camNote');
+  if (!btn) return;
+  let url = null, on = false;
+
+  const disable = (msg, warn) => {
+    btn.disabled = true;
+    note.textContent = msg;
+    note.className = 'camnote' + (warn ? ' warn' : '');
+  };
+
+  if (SYS.mode === 'DEMO'){
+    disable('Attention maps need a trained model. None is loaded (demo mode).');
+    return;
+  }
+  if (!c.gradable){
+    disable('The image failed the quality gate, so the model never graded it — there is nothing to explain.');
+    return;
+  }
+
+  note.textContent = 'Grad-CAM shows which regions most affected the referable-DR score. It is a debugging aid, not a diagnosis — it marks where, never why.';
+
+  btn.onclick = async () => {
+    if (url){
+      on = !on;
+      cam.classList.toggle('on', on);
+      btn.classList.toggle('active', on);
+      btn.textContent = on ? 'Hide attention map' : 'Show attention map';
+      return;
+    }
+    btn.classList.add('loading'); btn.textContent = 'Computing…'; btn.disabled = true;
+    try {
+      const r = await fetch(`/api/cases/${id}/gradcam`);
+      if (!r.ok){
+        const e = await r.json().catch(() => ({detail:'Unavailable'}));
+        disable(e.detail || 'Attention map unavailable.', true);
+        btn.classList.remove('loading'); btn.textContent = 'Unavailable';
+        return;
+      }
+      url = URL.createObjectURL(await r.blob());
+      cam.src = url; on = true;
+      cam.classList.add('on'); btn.classList.add('active');
+      btn.classList.remove('loading'); btn.disabled = false;
+      btn.textContent = 'Hide attention map';
+    } catch {
+      disable('Could not reach the server for the attention map.', true);
+      btn.classList.remove('loading'); btn.textContent = 'Show attention map';
+    }
+  };
+}
+
+loadSystem().then(refresh);
+</script>
+</body>
+</html>
