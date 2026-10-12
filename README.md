@@ -1,5 +1,13 @@
 # Diabetic Retinopathy Screening — foundation
 
+A screening tool that grades retina photos for diabetic retinopathy, built to fail safely: bad photos
+and borderline cases go to a human instead of getting a confident wrong answer.
+
+> **▶ Try the demo:** [the safety checks and decision rule, interactive](https://yc82628.github.io/medical-imaging.html) on my portfolio.
+>
+> **My role:** solo project. I built everything: the image quality and anatomy checks, the model and
+> its training, calibration, the grading web app and the audit log.
+
 **Research software. Not a medical device.** Hitting errors? Go to `RUNBOOK.md`
 — every error, cause and fix, plus the exact command sequence. New here? `SETUP.md`
 for a step-by-step walkthrough. Read `INTENDED_USE.md` first — it
