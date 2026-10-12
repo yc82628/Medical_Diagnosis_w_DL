@@ -127,7 +127,7 @@ from training and become "manual review" at serving time, never "healthy".**
 ## Step 7 — Run the tests
 
 ```bat
-python -m pytest tests\ -q
+python -m pytest -q
 ```
 
 Expect `20 passed`. These need no GPU and no torch — they cover the

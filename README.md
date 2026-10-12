@@ -8,14 +8,13 @@ and borderline cases go to a human instead of getting a confident wrong answer.
 > **My role:** solo project. I built everything: the image quality and anatomy checks, the model and
 > its training, calibration, the grading web app and the audit log.
 
-**Research software. Not a medical device.** Hitting errors? Go to `RUNBOOK.md`
-— every error, cause and fix, plus the exact command sequence. New here? `SETUP.md`
-for a step-by-step walkthrough. Read `INTENDED_USE.md` first — it
+**Research software. Not a medical device.** New here, or hitting errors? `SETUP.md`
+has the step-by-step walkthrough plus a "Common errors" section with causes and fixes. Read `INTENDED_USE.md` first — it
 defines the scope that every design decision here follows from.
 
 ## Run order
 
-Full step-by-step with troubleshooting: **`RUNBOOK.md`**.
+Full step-by-step with troubleshooting: **`SETUP.md`**.
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt -r requirements-serve.txt
@@ -39,7 +38,7 @@ python preprocessing.py --csv demo_data/labels.csv --images demo_data/images
 python check_setup.py
 
 # 4. Verify the harness BEFORE trusting a model. No GPU, no torch, no data needed.
-python -m pytest tests -q
+python -m pytest -q          # expect 20 passed
 
 # 5. Train. Selects on specificity@sensitivity-90, not accuracy.
 python train.py
@@ -54,7 +53,7 @@ python service.py            # http://127.0.0.1:8000
 
 For real data, run `prepare_aptos.py` before step 2 — it repairs missing file
 extensions, removes duplicate images, and rewrites `dr.env` to point at the
-cleaned labels. See `RUNBOOK.md` Part 5.
+cleaned labels. See "Switching to real data (APTOS 2019)" in `SETUP.md`.
 
 ## CSV schema
 
@@ -226,7 +225,7 @@ without arguments.
 `service.py` binds to `127.0.0.1` (this machine only) by default. Binding to a
 public address requires an explicit `--i-understand-this-is-not-a-medical-device`
 flag, because exposing it changes the legal and data-protection picture — see
-`RUNBOOK.md`.
+`INTENDED_USE.md`, section 7 (Regulatory position).
 
 ## Not built yet
 
