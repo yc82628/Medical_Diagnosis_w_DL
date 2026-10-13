@@ -1,0 +1,21 @@
+# Files Git should never upload. Everything here can be re-created
+# with the commands in README.md, or is specific to this computer.
+
+# Python environment and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Trained model weights (best_model.pt, ~42 MB) - re-create with: python train.py
+checkpoints/
+
+# Evaluation results, previews and the audit log database - re-created by
+# calibrate.py, model_card.py and service.py
+artifacts/
+
+# Synthetic demo data - re-create with: python make_demo_data.py --out demo_data --patients 80
+# (demo_data/labels.csv and the placeholder file are already on GitHub and stay tracked)
+demo_data/images/
+demo_data/cache_512/
