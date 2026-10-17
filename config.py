@@ -25,8 +25,13 @@ ICDR_GRADES = {
 REFERABLE_THRESHOLD = 2
  
 NUM_GRADES = 5
- 
- 
+
+# Search range for temperature scaling. A fitted temperature sitting on either
+# edge means the optimiser ran out of room -- typically a model whose logits
+# carry no usable signal -- so the acceptance gate treats it as a failure.
+TEMPERATURE_RANGE = (0.05, 10.0)
+
+
 @dataclass(frozen=True)
 class PreprocessConfig:
     """Deterministic image -> tensor pipeline. Frozen and hashed into checkpoints."""
@@ -132,11 +137,45 @@ class TrainConfig:
     save_path: str = "checkpoints/best_model.pt"
  
  
+@dataclass(frozen=True)
+class AcceptanceConfig:
+    """
+    Minimum evidence a checkpoint must carry before the service will use it.
+
+    These are floors that catch a broken or untrained model, not a clinical
+    claim. A screening programme sets its own acceptance criteria; for scale,
+    the FDA pivotal study for autonomous DR screening pre-specified
+    sensitivity > 85% and specificity > 82.5%. Raise these, never lower them,
+    to match the programme you deploy into.
+
+    Checked in predictor.build_predictor against artifacts/evaluation.json.
+    A failing model is not served; the platform falls back to labelled DEMO
+    mode and lists every failed criterion.
+    """
+    min_auroc: float = 0.85
+    min_sensitivity: float = 0.85       # at the frozen operating point, on test
+    min_specificity: float = 0.50       # at the frozen operating point, on test
+    max_ece: float = 0.10
+    # Fewer positives than this and the sensitivity estimate is too noisy to
+    # mean anything (30 positives: 95% CI on 0.90 is roughly +/- 0.11).
+    min_test_positives: int = 30
+    # Operating point must sit strictly inside (lo, hi). A threshold at ~0 or
+    # ~1 means "refer everyone" or "refer no-one" -- the model is not deciding.
+    operating_point_range: tuple = (0.001, 0.999)
+    # The abstention band is what routes borderline cases to a human
+    # (INTENDED_USE.md, section 5). Serving without it is out of scope.
+    require_abstention_band: bool = True
+    # Messidor-2 or another different-source set. Off by default only because
+    # development starts without one; turn on before any real deployment.
+    require_external_validation: bool = False
+
+
 @dataclass
 class Config:
     data: DataConfig = field(default_factory=DataConfig)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
+    acceptance: AcceptanceConfig = field(default_factory=AcceptanceConfig)
  
  
 # ---------------------------------------------------------------------------

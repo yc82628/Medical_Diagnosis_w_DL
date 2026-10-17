@@ -8,7 +8,8 @@ from pathlib import Path
 import cv2
 import numpy as np
  
-from config import PreprocessConfig, REFERABLE_THRESHOLD, ICDR_GRADES
+from config import (AcceptanceConfig, ICDR_GRADES, PreprocessConfig,
+                    REFERABLE_THRESHOLD, TEMPERATURE_RANGE)
 from preprocessing import assess_quality, preprocess_image, verify_is_fundus
  
  
@@ -33,6 +34,9 @@ class Prediction:
     model_version: str = "unknown"
     preprocess_fingerprint: str = "unknown"
     is_demo: bool = False
+    # False for the demo heuristic and for a model loaded with the acceptance
+    # gate overridden. Stored with every logged prediction.
+    validated: bool = False
     latency_ms: float = 0.0
     image_sha256: str = ""
  
@@ -54,6 +58,8 @@ class BasePredictor:
         self.abstain_high = abstain_high
         self.model_version = model_version
         self.is_demo = is_demo
+        self.validated = False      # set by build_predictor once the gate passes
+        self.acceptance_failures: list[str] = []
  
     # -- to be implemented -------------------------------------------------
     def _score(self, img_bgr: np.ndarray) -> tuple[float, np.ndarray]:
@@ -85,7 +91,7 @@ class BasePredictor:
             abstain_low=self.abstain_low, abstain_high=self.abstain_high,
             model_version=self.model_version,
             preprocess_fingerprint=self.pc.fingerprint(),
-            is_demo=self.is_demo, image_sha256=sha,
+            is_demo=self.is_demo, validated=self.validated, image_sha256=sha,
         )
  
         # Gate FIRST. The model never sees an ungradable image.
@@ -149,7 +155,7 @@ class TorchPredictor(BasePredictor):
         self.device = torch.device(dev)
         self.model, pc, ck = load_checkpoint(checkpoint_path, self.device)
  
-        op = operating_point if operating_point is not None else ck.get("val_threshold", 0.5)
+        op = operating_point if operating_point is not None else checkpoint_operating_point(ck)
         version = f"{ck.get('backbone','?')}@epoch{ck.get('epoch','?')}"
         super().__init__(pc, op, abstain_low, abstain_high, version, is_demo=False)
  
@@ -225,36 +231,177 @@ class DemoPredictor(BasePredictor):
  
 # ---------------------------------------------------------------------------
  
+
+def file_sha256(path) -> str:
+    """Hash of the checkpoint file -- identifies the exact weights, not just the config."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sigmoid(x: float) -> float:
+    return float(1 / (1 + np.exp(-np.clip(x, -30, 30))))
+
+
+def checkpoint_operating_point(ck: dict) -> float:
+    """
+    Operating point on the PROBABILITY scale, from a checkpoint alone.
+
+    train.py selects the threshold on raw logits. Comparing that number with a
+    probability is a units error: a logit threshold of -2 refers every case, and
+    one of +1.5 refers none (no probability exceeds 1). Newer checkpoints store
+    both scales under explicit names; older ones stored the logit as
+    `val_threshold`, which is converted here.
+
+    Only used when evaluation.json is absent, i.e. calibration is identity, so
+    sigmoid(logit) is exactly the probability the predictor compares against.
+    """
+    if ck.get("val_threshold_prob") is not None:
+        return float(ck["val_threshold_prob"])
+    for key in ("val_threshold_logit", "val_threshold"):
+        if ck.get(key) is not None:
+            return _sigmoid(float(ck[key]))
+    return 0.5
+
+
+def _band_for(evaluation: dict, target_coverage: float):
+    for row in evaluation.get("abstention", []) or []:
+        if abs(row.get("target_coverage", 0) - target_coverage) < 1e-6:
+            return row.get("band_low"), row.get("band_high")
+    return None, None
+
+
+def _num(v) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _check_report(rep: dict, label: str, acc: AcceptanceConfig) -> list[str]:
+    """Floors on one evaluation report. NaN fails every check: unmeasured is not passed."""
+    fails = []
+    tp, fn = _num(rep.get("tp")), _num(rep.get("fn"))
+    positives = int(tp + fn) if np.isfinite(tp) and np.isfinite(fn) else 0
+    if positives < acc.min_test_positives:
+        fails.append(f"{label}: only {positives} referable cases (need >= "
+                     f"{acc.min_test_positives} for a usable sensitivity estimate)")
+    checks = [("AUROC", rep.get("auroc"), acc.min_auroc, ">="),
+              ("sensitivity", rep.get("sensitivity"), acc.min_sensitivity, ">="),
+              ("specificity", rep.get("specificity"), acc.min_specificity, ">="),
+              ("ECE", rep.get("ece"), acc.max_ece, "<=")]
+    for name, value, limit, op in checks:
+        v = _num(value)
+        ok = np.isfinite(v) and (v >= limit if op == ">=" else v <= limit)
+        if not ok:
+            shown = f"{v:.3f}" if np.isfinite(v) else "not measured"
+            fails.append(f"{label}: {name} {shown} (required {op} {limit})")
+    return fails
+
+
+def acceptance_failures(evaluation: dict | None, checkpoint_sha: str,
+                        preprocess_fp: str, acc: AcceptanceConfig | None = None,
+                        target_coverage: float = 0.85) -> list[str]:
+    """
+    Every reason this checkpoint must not be served. Empty list = accepted.
+
+    Torch-free, so it is unit-tested directly. The criteria live in
+    config.AcceptanceConfig.
+    """
+    acc = acc or AcceptanceConfig()
+    if evaluation is None:
+        return ["no artifacts/evaluation.json, so the model has no measured "
+                "evidence (run calibrate.py)"]
+
+    fails = []
+    sha = evaluation.get("checkpoint_sha256")
+    if sha is None:
+        fails.append("evaluation.json does not record which checkpoint it measured "
+                     "(written by an older calibrate.py; re-run it)")
+    elif sha != checkpoint_sha:
+        fails.append("evaluation.json was measured on a different checkpoint than "
+                     "the one being loaded (re-run calibrate.py)")
+    if evaluation.get("preprocess_fingerprint") != preprocess_fp:
+        fails.append("evaluation.json preprocessing fingerprint does not match the "
+                     "checkpoint")
+
+    op = _num(evaluation.get("operating_point"))
+    lo, hi = acc.operating_point_range
+    if not (np.isfinite(op) and lo < op < hi):
+        fails.append(f"operating point {op:.4g} is outside ({lo}, {hi}): the model "
+                     f"is referring everyone or no-one rather than deciding")
+
+    cal = evaluation.get("calibration") or {}
+    if not cal.get("method"):
+        fails.append("no calibration recorded")
+    elif cal["method"] == "temperature":
+        t = _num(cal.get("temperature"))
+        tlo, thi = TEMPERATURE_RANGE
+        if not np.isfinite(t) or t <= tlo * 1.0001 or t >= thi * 0.9999:
+            fails.append(f"calibration temperature {t:.3g} is pinned at the search "
+                         f"bound {TEMPERATURE_RANGE}: the logits carry no usable signal")
+
+    fails += _check_report(evaluation.get("internal_test") or {}, "internal test", acc)
+
+    ext = evaluation.get("external_test")
+    if ext:
+        fails += _check_report(ext, "external test", acc)
+    elif acc.require_external_validation:
+        fails.append("no external (different-source) validation, which "
+                     "AcceptanceConfig.require_external_validation requires")
+
+    if acc.require_abstention_band:
+        blo, bhi = _band_for(evaluation, target_coverage)
+        if blo is None or bhi is None:
+            fails.append(f"no abstention band for {target_coverage:.0%} coverage, so "
+                         f"borderline cases would not reach a human (re-run calibrate.py)")
+    return fails
+
+
 def build_predictor(checkpoint_path="checkpoints/best_model.pt",
                     evaluation_path="artifacts/evaluation.json",
-                    target_coverage: float = 0.85):
+                    target_coverage: float = 0.85,
+                    acceptance: AcceptanceConfig | None = None,
+                    allow_unvalidated: bool | None = None):
     """
-    Load the trained model if available; otherwise fall back to demo mode.
- 
-    Returns (predictor, note) where note explains which path was taken -- the API
-    surfaces it so nobody has to guess whether they are looking at a real model.
+    Load the trained model if it exists AND passes the acceptance gate;
+    otherwise fall back to demo mode.
+
+    Returns (predictor, note). The note says which path was taken and, when a
+    checkpoint was rejected, every criterion it failed -- the API surfaces it so
+    nobody has to guess whether they are looking at a real model.
+
+    `allow_unvalidated` (or DR_ALLOW_UNVALIDATED_MODEL=1) serves a failing model
+    anyway, for research debugging such as checking Grad-CAM on demo data. The
+    predictor is then marked validated=False, which the API reports as mode
+    UNVALIDATED and stores on every logged prediction.
     """
     import json
- 
+    import os
+
+    acc = acceptance or AcceptanceConfig()
+    if allow_unvalidated is None:
+        allow_unvalidated = os.environ.get("DR_ALLOW_UNVALIDATED_MODEL") == "1"
+
     ck = Path(checkpoint_path)
     if not ck.exists():
-        return DemoPredictor(), (
+        p = DemoPredictor()
+        return p, (
             f"No checkpoint at {ck}. Running in DEMO mode: outputs come from an "
             f"image-statistics heuristic, not a trained model, and are clinically "
             f"meaningless. Train a model to replace it."
         )
- 
-    op, cal, lo, hi = None, None, None, None
+
     ev = Path(evaluation_path)
-    if ev.exists():
-        data = json.loads(ev.read_text())
-        op = data.get("operating_point")
-        cal = data.get("calibration")
-        for row in data.get("abstention", []):
-            if abs(row.get("target_coverage", 0) - target_coverage) < 1e-6:
-                lo, hi = row.get("band_low"), row.get("band_high")
-                break
- 
+    evaluation = json.loads(ev.read_text()) if ev.exists() else None
+    op, cal, lo, hi = None, None, None, None
+    if evaluation is not None:
+        op = evaluation.get("operating_point")
+        cal = evaluation.get("calibration")
+        lo, hi = _band_for(evaluation, target_coverage)
+
     try:
         p = TorchPredictor(checkpoint_path, op, cal, lo, hi)
     except ImportError:
@@ -262,18 +409,37 @@ def build_predictor(checkpoint_path="checkpoints/best_model.pt",
             "PyTorch is not installed, so the trained checkpoint cannot be loaded. "
             "Running in DEMO mode. Install with: pip install -r requirements.txt"
         )
- 
-    note = f"Loaded model {p.model_version} (operating point {p.operating_point:.3f})."
-    if not ev.exists():
-        note += (" No artifacts/evaluation.json found, so calibration and the "
-                 "abstention band are NOT applied. Run calibrate.py.")
-    elif lo is None or hi is None:
-        # Older evaluation.json files did not record band edges. Say so loudly
-        # rather than silently auto-deciding the borderline cases.
-        note += (f" No abstention band for {target_coverage:.0%} coverage in "
-                 f"{ev}, so borderline cases are NOT routed to a human. "
-                 f"Re-run calibrate.py.")
+
+    failures = acceptance_failures(evaluation, file_sha256(ck), p.pc.fingerprint(),
+                                   acc, target_coverage)
+    listed = "; ".join(failures)
+
+    if failures and not allow_unvalidated:
+        d = DemoPredictor()
+        d.acceptance_failures = failures
+        return d, (
+            f"Checkpoint {ck} was NOT loaded because it failed the acceptance gate "
+            f"(config.AcceptanceConfig): {listed}. Running in DEMO mode. Retrain or "
+            f"re-run calibrate.py; for research debugging only, set "
+            f"DR_ALLOW_UNVALIDATED_MODEL=1."
+        )
+
+    p.acceptance_failures = failures
+    p.validated = not failures
+    if failures:
+        note = (f"UNVALIDATED MODEL {p.model_version}: acceptance gate overridden by "
+                f"DR_ALLOW_UNVALIDATED_MODEL. Failed: {listed}. Outputs must not "
+                f"inform any decision.")
     else:
+        note = (f"Loaded model {p.model_version} (operating point "
+                f"{p.operating_point:.3f}); passed the acceptance gate.")
+    if lo is not None and hi is not None:
         note += (f" Abstention band {lo:.3f}-{hi:.3f} "
                  f"({target_coverage:.0%} coverage) is active.")
+    elif evaluation is None:
+        note += (" No evaluation.json, so calibration and the abstention band are "
+                 "NOT applied.")
+    else:
+        note += (f" No abstention band for {target_coverage:.0%} coverage, so "
+                 f"borderline cases are NOT routed to a human.")
     return p, note

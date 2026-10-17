@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from config import CONFIG, Config
 from dataset import FundusDataset, build_transforms
 from model import load_checkpoint
+from predictor import file_sha256
 from splits import load_labels, split_by_patient
 from train import predict
 from metrics import (Calibrator, threshold_at_sensitivity, full_report,
@@ -124,6 +125,11 @@ def main(cfg: Config = CONFIG):
         "abstention": ab.to_dict(orient="records"),
         "subgroups": sub.to_dict(orient="records") if not sub.empty else [],
         "preprocess_fingerprint": pc.fingerprint(),
+        # Ties this evidence to the exact weights it was measured on. The
+        # service refuses an evaluation.json whose hash does not match the
+        # checkpoint it is about to load.
+        "checkpoint_sha256": file_sha256(tc.save_path),
+        "checkpoint_epoch": ck.get("epoch"),
     }
     with open("artifacts/evaluation.json", "w") as f:
         json.dump(out, f, indent=2, default=float)

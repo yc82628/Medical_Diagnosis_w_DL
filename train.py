@@ -135,9 +135,15 @@ def main(cfg: Config = CONFIG):
         flag = ""
         if score > best:
             best, best_epoch = score, epoch
+            # thr was chosen on RAW LOGITS. The predictor compares against a
+            # probability, so store both, each named for its scale. (Older
+            # checkpoints stored the logit as `val_threshold`; the predictor
+            # still reads that key and converts it.)
             save_checkpoint(tc.save_path, model, cfg.preprocess,
                             extra={"epoch": epoch, "val_metrics": m,
-                                   "val_threshold": thr, "history": history})
+                                   "val_threshold_logit": float(thr),
+                                   "val_threshold_prob": float(1 / (1 + np.exp(-np.clip(thr, -30, 30)))),
+                                   "history": history})
             flag = "  <- saved"
 
         print(f"  epoch {epoch:>3}/{tc.num_epochs}  loss {loss:.4f}  "

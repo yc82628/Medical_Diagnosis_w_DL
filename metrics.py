@@ -7,6 +7,8 @@ from sklearn.metrics import (
     cohen_kappa_score, confusion_matrix,
 )
 
+from config import TEMPERATURE_RANGE
+
 
 # Operating point
 def threshold_at_sensitivity(y_true, y_score, target_sensitivity=0.90) -> float:
@@ -142,7 +144,8 @@ def reliability_table(y_true, y_prob, n_bins=10) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def fit_temperature(logits, y_true, lo=0.05, hi=10.0, n=400) -> float:
+def fit_temperature(logits, y_true, lo=TEMPERATURE_RANGE[0], hi=TEMPERATURE_RANGE[1],
+                    n=400) -> float:
     """
     Temperature scaling by 1-D grid + golden refinement on NLL.
 

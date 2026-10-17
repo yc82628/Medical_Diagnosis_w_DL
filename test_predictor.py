@@ -108,6 +108,8 @@ def test_build_predictor_reads_band_from_evaluation(tmp_path, monkeypatch):
             super().__init__(PreprocessConfig(), op, lo, hi, "fake")
 
     monkeypatch.setattr(pr, "TorchPredictor", _FakeTorch)
-    pred, note = build_predictor(str(ck), str(ev))
+    # This evaluation has no test metrics, so it cannot pass the acceptance
+    # gate; the override isolates band wiring (the gate has its own tests).
+    pred, note = build_predictor(str(ck), str(ev), allow_unvalidated=True)
     assert captured["lo"] is not None and captured["hi"] is not None
     assert "is active" in note
