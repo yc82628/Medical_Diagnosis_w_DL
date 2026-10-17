@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -321,7 +321,9 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
         if len(pid) > 64 or len(encounter_id or "") > 128 or len(device or "") > 128:
             raise HTTPException(400, "Identifier too long.")
         enc = ((encounter_id or "").strip() or meta.get("encounter_id")
-               or f"{pid}:{datetime.now(timezone.utc).date().isoformat()}")
+               # Local date: a visit at 00:30 belongs to today in the clinic,
+               # not to yesterday in UTC.
+               or f"{pid}:{datetime.now().date().isoformat()}")
         dev = (device or "").strip() or meta.get("device")
 
         pred = predictor.predict(arr)

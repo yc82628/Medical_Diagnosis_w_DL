@@ -4,18 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retinal Screening — Grader Review</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#101419; --panel:#171C24; --raise:#1E242E; --line:#2A323E;
   --text:#E6EAF0; --muted:#8C97A8; --faint:#5C6675;
   --amber:#E9A445;          /* fundus tissue — the one accent */
   --refer:#E4695C; --routine:#4CB08A; --review:#7BA0D9;
-  --sans:'IBM Plex Sans',system-ui,sans-serif;
-  --cond:'IBM Plex Sans Condensed',var(--sans);
-  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --cond:var(--sans);
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -188,6 +185,49 @@ input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-
 #summary div{display:flex;flex-direction:column}
 #summary .v{font-family:var(--mono);font-size:16px;font-weight:500}
 
+/* ---------- banners ---------- */
+#scope.unvalidated{background:linear-gradient(90deg,#3A1614,#2E1412);border-bottom-color:#6A2A24}
+#scope.unvalidated b{color:var(--refer)}
+#scope.unvalidated span{color:#E3A59D}
+
+/* ---------- sign-in ---------- */
+#login{position:fixed;inset:0;background:var(--ink);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+#login.on{display:flex}
+#login form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:26px 24px}
+#login h1{font-size:17px;margin:0 0 4px}
+#login p{color:var(--faint);font-size:12.5px;margin:0 0 18px}
+#login label{display:block;margin:0 0 12px}
+#login .err{color:var(--refer);font-size:12.5px;min-height:18px;margin:4px 0 0}
+input[type=password],select{
+  width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);
+  padding:9px 11px;border-radius:6px;font-family:inherit;font-size:13px;
+}
+input[type=password]:focus,select:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:transparent}
+.primary{width:100%;background:var(--amber);color:#181206;border:none;padding:11px;border-radius:7px;font-weight:600}
+.primary:disabled{background:var(--raise);color:var(--faint);cursor:not-allowed}
+.ghost{background:var(--raise);color:var(--text);border:1px solid var(--line);padding:6px 12px;border-radius:6px;font-size:12.5px}
+.ghost:hover{border-color:var(--amber);color:var(--amber)}
+.who{display:flex;align-items:center;gap:10px}
+
+/* ---------- upload fields ---------- */
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 14px 2px}
+.fields label{display:flex;flex-direction:column;gap:3px}
+.fields .wide{grid-column:1/-1}
+.hint{color:var(--faint);font-size:11.5px;margin:6px 14px 0}
+
+/* ---------- visit + monitoring ---------- */
+.eyes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 12px}
+.eye{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:10px 12px}
+.eye .src{color:var(--faint);font-size:11px}
+.warnbox{background:color-mix(in srgb,var(--refer) 12%,transparent);border:1px solid color-mix(in srgb,var(--refer) 40%,transparent);color:#F1B4AC;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:10px}
+.okbox{background:color-mix(in srgb,var(--routine) 12%,transparent);border:1px solid color-mix(in srgb,var(--routine) 40%,transparent);color:#A9DCC6;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:10px}
+.tablewrap{overflow-x:auto}
+table.grid{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--mono)}
+table.grid th{font-family:var(--cond);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:600}
+table.grid td{text-align:right;padding:6px 8px;border-bottom:1px solid rgba(42,50,62,.5)}
+table.grid th:first-child,table.grid td:first-child{text-align:left}
+.INCOMPLETE{--c:var(--muted)}
+
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media (max-width:960px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}
@@ -195,6 +235,19 @@ input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-
 </style>
 </head>
 <body>
+
+<div id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <form id="loginForm" autocomplete="on">
+    <h1 id="loginTitle">Retinal Screening</h1>
+    <p>Sign in with your grading account. Research software — not a medical device.</p>
+    <label><span class="eyebrow">Username</span>
+      <input type="text" id="luser" autocomplete="username" required></label>
+    <label><span class="eyebrow">Password</span>
+      <input type="password" id="lpass" autocomplete="current-password" required></label>
+    <button class="primary" id="lbtn">Sign in</button>
+    <div class="err" id="lerr" role="alert"></div>
+  </form>
+</div>
 
 <div id="scope">
   <b>Research software — not a medical device</b>
@@ -207,15 +260,24 @@ input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-
     <span class="sub">Grader review</span>
   </div>
   <div class="meta" id="meta"></div>
+  <div class="who" id="who"></div>
 </header>
 
 <main>
   <aside id="rail">
+    <div class="fields">
+      <label><span class="eyebrow">Patient ID</span><input type="text" id="pid" autocomplete="off" maxlength="64"></label>
+      <label><span class="eyebrow">Eye</span>
+        <select id="eye"><option value="">—</option><option value="right">Right (OD)</option><option value="left">Left (OS)</option></select></label>
+      <label><span class="eyebrow">Visit ID</span><input type="text" id="enc" autocomplete="off" maxlength="128" placeholder="optional"></label>
+      <label><span class="eyebrow">Camera</span><input type="text" id="dev" autocomplete="off" maxlength="128" placeholder="optional"></label>
+    </div>
+    <p class="hint">DICOM files carry these in their tags; for PNG/JPEG enter patient and eye first. Visit defaults to patient + today.</p>
     <div id="drop">
       <strong>Drop fundus images here</strong>
-      <small>PNG, JPG or TIFF — multiple accepted</small><br>
+      <small>DICOM, PNG, JPG or TIFF — multiple accepted</small><br>
       <button id="pick">Choose files</button>
-      <input id="file" type="file" accept="image/*" multiple hidden>
+      <input id="file" type="file" accept="image/*,.dcm,application/dicom" multiple hidden>
     </div>
     <div class="railhead">
       <span class="eyebrow">Worklist</span>
@@ -235,34 +297,86 @@ input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-
 
 <script>
 const $ = s => document.querySelector(s);
-const api = (p,o) => fetch(p,o).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
-let SYS = null, CASES = [], CURRENT = null, PICKED = null;
+let SYS = null, ME = null, CASES = [], CURRENT = null, PICKED = null;
 
-const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review', UNGRADABLE:'Ungradable'};
-// Escape every server-supplied string before it goes into innerHTML. Filenames
-// come from whoever uploads the image and grader names are free text, so an
-// unescaped value like <img src=x onerror=...> would run script in every
-// grader's browser that opens the worklist.
+const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review',
+               UNGRADABLE:'Ungradable', INCOMPLETE:'Incomplete'};
+// Escape every server-supplied string before it goes into innerHTML. Filenames,
+// patient IDs and notes come from users, so an unescaped value like
+// <img src=x onerror=...> would run script in every grader's browser.
 const esc = v => v == null ? '' : String(v).replace(/[&<>"']/g,
   ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const pct = v => v == null ? '—' : (v*100).toFixed(0) + '%';
+const clinical = () => ME && ME.role !== 'photographer';
+
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts));
+  if (r.status === 401 && path !== '/api/login'){
+    showLogin('Your session has ended. Sign in again.');
+    throw {detail:'Sign in required.'};
+  }
+  const isJson = (r.headers.get('content-type') || '').includes('json');
+  const body = isJson ? await r.json() : null;
+  if (!r.ok) throw (body || {detail: r.statusText});
+  return body;
+}
+
+/* ---------- sign-in ---------- */
+function showLogin(msg){
+  $('#login').classList.add('on');
+  $('#lerr').textContent = msg || '';
+  setTimeout(() => $('#luser').focus(), 0);
+}
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault();
+  $('#lbtn').disabled = true; $('#lerr').textContent = '';
+  try {
+    await api('/api/login', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username:$('#luser').value, password:$('#lpass').value})});
+    $('#lpass').value = '';
+    $('#login').classList.remove('on');
+    await boot();
+  } catch(err){
+    $('#lerr').textContent = err.detail || 'Sign-in failed.';
+  } finally { $('#lbtn').disabled = false; }
+};
+async function signOut(){
+  await fetch('/api/logout', {method:'POST', credentials:'same-origin'});
+  ME = null; CURRENT = null;
+  $('#list').innerHTML = ''; $('#stage').innerHTML = '';
+  showLogin('Signed out.');
+}
 
 /* ---------- system ---------- */
 async function loadSystem(){
   SYS = await api('/api/system');
+  const modeColour = {DEMO:'var(--amber)', UNVALIDATED:'var(--refer)', MODEL:'var(--routine)'}[SYS.mode];
   $('#meta').innerHTML = `
-    <div><span class="eyebrow">Mode</span><span class="v" style="color:${SYS.mode==='DEMO'?'var(--amber)':'var(--routine)'}">${esc(SYS.mode)}</span></div>
+    <div><span class="eyebrow">Mode</span><span class="v" style="color:${modeColour}">${esc(SYS.mode)}</span></div>
     <div><span class="eyebrow">Model</span><span class="v">${esc(SYS.model_version)}</span></div>
     <div><span class="eyebrow">Operating point</span><span class="v">${SYS.operating_point?.toFixed(3) ?? '—'}</span></div>
     <div><span class="eyebrow">Preprocessing</span><span class="v">${esc(SYS.preprocess_fingerprint)}</span></div>`;
+  $('#who').innerHTML = `
+    <span class="num" style="font-size:12.5px;color:var(--muted)">${esc(ME.username)} · ${esc(ME.role)}</span>
+    ${clinical() ? '<button class="ghost" id="monBtn">Monitoring</button>' : ''}
+    <button class="ghost" id="outBtn">Sign out</button>`;
+  $('#outBtn').onclick = signOut;
+  if ($('#monBtn')) $('#monBtn').onclick = showMonitoring;
+
+  const scope = $('#scope');
+  scope.classList.toggle('unvalidated', SYS.mode === 'UNVALIDATED');
   if (SYS.mode === 'DEMO'){
-    $('#scope').innerHTML = `<b>Demo mode — outputs are not from a trained model</b>
+    scope.innerHTML = `<b>Demo mode — outputs are not from a trained model</b>
       <span>${esc(SYS.note)} Research software, not a medical device.</span>`;
+  } else if (SYS.mode === 'UNVALIDATED'){
+    scope.innerHTML = `<b>Unvalidated model — outputs must not inform any decision</b>
+      <span>${esc(SYS.note)}</span>`;
   }
 }
 
 /* ---------- upload ---------- */
 const drop = $('#drop');
+const dropMsg = t => drop.querySelector('strong').textContent = t;
 ['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
   ev.preventDefault(); drop.classList.add('hot');
 }));
@@ -271,24 +385,37 @@ const drop = $('#drop');
 }));
 drop.addEventListener('drop', ev => upload([...ev.dataTransfer.files]));
 $('#pick').onclick = () => $('#file').click();
-$('#file').onchange = e => upload([...e.target.files]);
+$('#file').onchange = e => { upload([...e.target.files]); e.target.value = ''; };
+
+const isDicom = f => /\.dcm$/i.test(f.name) || f.type === 'application/dicom';
 
 async function upload(files){
-  const imgs = files.filter(f => f.type.startsWith('image/'));
-  if (!imgs.length) return;
-  drop.querySelector('strong').textContent = `Reading ${imgs.length} image${imgs.length>1?'s':''}…`;
+  const usable = files.filter(f => f.type.startsWith('image/') || isDicom(f));
+  if (!usable.length) return;
+  const pid = $('#pid').value.trim(), eye = $('#eye').value;
+  if (usable.some(f => !isDicom(f)) && (!pid || !eye)){
+    dropMsg('Enter the patient ID and eye first');
+    (pid ? $('#eye') : $('#pid')).focus();
+    setTimeout(() => dropMsg('Drop fundus images here'), 2600);
+    return;
+  }
+  dropMsg(`Reading ${usable.length} image${usable.length>1?'s':''}…`);
   let first = null;
-  for (const f of imgs){
-    const fd = new FormData(); fd.append('file', f);
+  for (const f of usable){
+    const fd = new FormData();
+    fd.append('file', f);
+    for (const [k, v] of [['patient_id', pid], ['eye', eye],
+                          ['encounter_id', $('#enc').value.trim()], ['device', $('#dev').value.trim()]])
+      if (v) fd.append(k, v);
     try {
       const r = await api('/api/predict', {method:'POST', body:fd});
       first = first || r.case_id;
     } catch(e){
-      drop.querySelector('strong').textContent = e.detail || 'Could not read that file';
+      dropMsg(e.detail || 'Could not read that file');
       await new Promise(r => setTimeout(r, 2600));
     }
   }
-  drop.querySelector('strong').textContent = 'Drop fundus images here';
+  dropMsg('Drop fundus images here');
   await refresh();
   if (first) select(first);
 }
@@ -301,8 +428,8 @@ async function refresh(){
     <div class="case ${c.decision} ${c.case_id===CURRENT?'on':''}" data-id="${esc(c.case_id)}" tabindex="0">
       <div class="bar"></div>
       <div>
-        <div class="fn">${esc(c.filename || c.case_id)}</div>
-        <div class="st">${LABEL[c.decision]}${c.latest_verdict ? ' · graded ' + LABEL[c.latest_verdict] : ''}</div>
+        <div class="fn">${c.patient_id ? esc(c.patient_id) + ' · ' + esc(c.eye || 'eye?') : esc(c.filename || c.case_id)}</div>
+        <div class="st">${LABEL[c.decision]}${c.latest_verdict ? ' · graded ' + LABEL[c.latest_verdict] : ''}${c.patient_id && c.filename ? ' · ' + esc(c.filename) : ''}</div>
       </div>
       <div class="p">${pct(c.probability)}</div>
     </div>`).join('');
@@ -347,16 +474,55 @@ function axis(p){
   </div>`;
 }
 
+/* ---------- visit (patient-level) ---------- */
+async function visitCard(c){
+  if (!c.encounter_id) return '';
+  let e;
+  try { e = await api('/api/encounters/' + encodeURIComponent(c.encounter_id)); }
+  catch { return ''; }
+  const eyeBox = side => {
+    const d = e.eyes[side];
+    return `<div class="eye"><span class="eyebrow">${side} eye</span><br>
+      ${d ? `<span class="tag ${d.outcome}">${LABEL[d.outcome] || esc(d.outcome)}</span>
+             <div class="src">${d.source === 'grader' ? 'grader verdict' : 'model only'}</div>`
+          : '<span class="src">not imaged</span>'}</div>`;
+  };
+  return `<div class="card">
+    <h3>Visit — patient-level decision</h3>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="tag ${e.decision}">${LABEL[e.decision] || esc(e.decision)}</span>
+      <span class="num" style="color:var(--faint);font-size:12px">${e.final ? 'final — every eye graded by a human' : 'preliminary'}</span>
+    </div>
+    <div class="eyes">${eyeBox('right')}${eyeBox('left')}</div>
+    <ul class="reasons">${e.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+    <table class="kv" style="margin-top:10px">
+      <tr><td>Patient</td><td>${esc(e.patient_id)}</td></tr>
+      <tr><td>Visit</td><td>${esc(e.encounter_id)}</td></tr>
+    </table>
+    ${clinical() ? `<button class="ghost" id="fhirBtn" style="margin-top:12px">Download FHIR report</button>` : ''}
+  </div>`;
+}
+
+async function downloadFhir(encounterId){
+  const rep = await api('/api/encounters/' + encodeURIComponent(encounterId) + '/fhir');
+  const url = URL.createObjectURL(new Blob([JSON.stringify(rep, null, 2)], {type:'application/fhir+json'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = `dr-screening-${encounterId.replace(/[^\w.-]+/g,'_')}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* ---------- case detail ---------- */
 async function select(id){
   CURRENT = id; PICKED = null;
   $('#list').querySelectorAll('.case').forEach(e => e.classList.toggle('on', e.dataset.id===id));
-  const c = await api('/api/cases/' + id);
+  const c = await api('/api/cases/' + encodeURIComponent(id));
   const p = c.payload, q = p.quality || {};
+  const visit = await visitCard(c);
 
   $('#stage').innerHTML = `
     <div class="top">
-      <h2>${esc(c.filename || id)}</h2>
+      <h2>${c.patient_id ? esc(c.patient_id) + ' · ' + esc(c.eye || 'eye not recorded') : esc(c.filename || id)}</h2>
       <span class="tag ${c.decision}">${LABEL[c.decision]}</span>
       <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">case ${esc(id)}</span>
     </div>
@@ -374,23 +540,27 @@ async function select(id){
       </figure>
       <div>
         <div class="card">
-          <h3>Decision</h3>
+          <h3>Decision — this image</h3>
           ${axis(c.probability)}
           <ul class="reasons">${(p.reasons||[]).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
         </div>
 
+        ${visit}
+
         <div class="card">
           <h3>Grader verdict</h3>
+          ${clinical() ? `
           <div class="vbtns">
             <button class="vb REFER"   data-v="REFER">Refer</button>
             <button class="vb ROUTINE" data-v="ROUTINE">Routine</button>
             <button class="vb MANUAL_REVIEW" data-v="UNGRADABLE">Ungradable</button>
           </div>
-          <input type="text" id="grader" placeholder="Your name or ID" autocomplete="off">
-          <button id="save" disabled>Record verdict</button>
+          <input type="text" id="vnote" placeholder="Note (optional)" autocomplete="off" maxlength="2000">
+          <button id="save" disabled>Record verdict as ${esc(ME.username)}</button>`
+          : `<p style="color:var(--faint);margin:0">Photographer accounts cannot record verdicts.</p>`}
           ${c.verdicts.length ? `<h3 style="margin-top:17px">Audit trail</h3>
             <div class="trail">${c.verdicts.map(v =>
-              `<div>${esc(v.created_utc)} · ${esc(LABEL[v.verdict]||v.verdict)} · ${esc(v.grader||'unattributed')}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}</div>`).join('')}</div>` : ''}
+              `<div>${esc(v.created_utc)} · ${esc(LABEL[v.verdict]||v.verdict)} · ${esc(v.grader||'unattributed')}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}${v.note ? ' · ' + esc(v.note) : ''}</div>`).join('')}</div>` : ''}
         </div>
 
         <div class="card">
@@ -408,9 +578,13 @@ async function select(id){
           <h3>Provenance</h3>
           <table class="kv">
             <tr><td>Model</td><td>${esc(c.model_version)}</td></tr>
+            <tr><td>Passed acceptance gate</td><td>${c.validated ? 'Yes' : 'No'}</td></tr>
             <tr><td>Preprocessing</td><td>${esc(c.preprocess_fp)}</td></tr>
             <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
             <tr><td>Indicative ICDR grade</td><td>${c.grade ?? '—'}</td></tr>
+            <tr><td>Camera</td><td>${esc(c.device) || '—'}</td></tr>
+            <tr><td>Source</td><td>${esc(c.source_format) || '—'} · ${esc(c.filename) || '—'}</td></tr>
+            <tr><td>Uploaded by</td><td>${esc(c.uploaded_by) || '—'}</td></tr>
             <tr><td>Recorded</td><td>${esc(c.created_utc)}</td></tr>
             <tr><td>Image hash</td><td>${esc(c.image_sha256)}</td></tr>
           </table>
@@ -418,18 +592,22 @@ async function select(id){
       </div>
     </div>`;
 
+  if ($('#fhirBtn')) $('#fhirBtn').onclick = () => downloadFhir(c.encounter_id)
+    .catch(e => alert(e.detail || 'Could not build the FHIR report.'));
   $('#stage').querySelectorAll('.vb').forEach(b => b.onclick = () => {
     PICKED = b.dataset.v;
     $('#stage').querySelectorAll('.vb').forEach(x => x.classList.toggle('sel', x===b));
     $('#save').disabled = false;
   });
-  $('#save').onclick = async () => {
+  if ($('#save')) $('#save').onclick = async () => {
     if (!PICKED) return;
     $('#save').disabled = true; $('#save').textContent = 'Recording…';
-    await api(`/api/cases/${id}/verdict`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({verdict:PICKED, grader:$('#grader').value || null})
-    });
+    try {
+      await api(`/api/cases/${encodeURIComponent(id)}/verdict`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({verdict:PICKED, note:$('#vnote').value || null})
+      });
+    } catch(e){ alert(e.detail || 'Could not record the verdict.'); }
     await refresh(); await select(id);
   };
 
@@ -454,6 +632,10 @@ function setupGradcam(id, c){
     disable('Attention maps need a trained model. None is loaded (demo mode).');
     return;
   }
+  if (!clinical()){
+    disable('Attention maps are available to graders.');
+    return;
+  }
   if (!c.gradable){
     disable('The image failed the quality gate, so the model never graded it — there is nothing to explain.');
     return;
@@ -471,12 +653,21 @@ function setupGradcam(id, c){
     }
     btn.classList.add('loading'); btn.textContent = 'Computing…'; btn.disabled = true;
     try {
-      const r = await fetch(`/api/cases/${id}/gradcam`);
+      const r = await fetch(`/api/cases/${encodeURIComponent(id)}/gradcam`, {credentials:'same-origin'});
       if (!r.ok){
         const e = await r.json().catch(() => ({detail:'Unavailable'}));
         disable(e.detail || 'Attention map unavailable.', true);
         btn.classList.remove('loading'); btn.textContent = 'Unavailable';
         return;
+      }
+      const border = r.headers.get('X-Border-Mass');
+      if (r.headers.get('X-Border-Warning') === '1'){
+        note.className = 'camnote warn';
+        note.textContent = `Warning: attention concentrates on the image border (border mass ${border}). ` +
+          'That is the shortcut-learning signature — the model may be reacting to the camera, not the retina. ' +
+          'Do not rely on this score without careful review.';
+      } else if (border){
+        note.textContent += ` Border mass ${border} (no shortcut signal).`;
       }
       url = URL.createObjectURL(await r.blob());
       cam.src = url; on = true;
@@ -490,7 +681,53 @@ function setupGradcam(id, c){
   };
 }
 
-loadSystem().then(refresh);
+/* ---------- monitoring ---------- */
+async function showMonitoring(){
+  CURRENT = null;
+  $('#list').querySelectorAll('.case').forEach(e => e.classList.remove('on'));
+  const m = await api('/api/monitoring');
+  const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td>
+    <td>${pct(r.refer_rate)}</td><td>${pct(r.manual_rate)}</td><td>${pct(r.ungradable_rate)}</td>
+    <td>${r.reviewed ?? 0}</td><td>${pct(r.agreement_rate)}</td></tr>`;
+  const head = first => `<tr><th>${first}</th><th>Cases</th><th>Refer</th><th>Human review</th>
+    <th>Ungradable</th><th>Reviewed</th><th>Agreement</th></tr>`;
+  $('#stage').innerHTML = `
+    <div class="top"><h2>Monitoring</h2>
+      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">last ${m.window_days} days</span></div>
+    <div class="card">
+      <h3>Alerts</h3>
+      ${m.alerts.length ? m.alerts.map(a => `<div class="warnbox">${esc(a)}</div>`).join('')
+                        : '<div class="okbox">No drift signals in this window.</div>'}
+      <p style="color:var(--faint);font-size:12px;margin:6px 0 0">Offline metrics cannot see a new camera, photographer or population. Falling grader agreement and rising ungradable rates can.</p>
+    </div>
+    <div class="card"><h3>Recent vs baseline</h3><div class="tablewrap"><table class="grid">
+      ${head('Period')}${row(`Last ${m.recent_days} days`, m.recent)}${row('Earlier', m.baseline)}
+    </table></div></div>
+    <div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">
+      ${head('Week')}${m.weekly.map(w => row(w.week, w)).join('') || '<tr><td colspan="7">No cases yet.</td></tr>'}
+    </table></div></div>
+    <div class="card"><h3>By camera</h3><div class="tablewrap"><table class="grid">
+      ${head('Camera')}${m.by_device.map(d => row(d.device, d)).join('') || '<tr><td colspan="7">No cases yet.</td></tr>'}
+    </table></div></div>
+    ${ME.role === 'admin' ? `<div class="card"><h3>Audit log integrity</h3>
+      <button class="ghost" id="verifyBtn">Verify audit chain</button>
+      <div id="verifyOut" style="margin-top:12px"></div></div>` : ''}`;
+  if ($('#verifyBtn')) $('#verifyBtn').onclick = async () => {
+    $('#verifyOut').textContent = 'Verifying…';
+    const v = await api('/api/audit/verify');
+    $('#verifyOut').innerHTML = v.ok
+      ? `<div class="okbox">Intact: ${v.entries} entries, every link and record hash verified.<br><span class="num">head ${esc(v.head_hash)}</span></div>`
+      : `<div class="warnbox">Integrity check FAILED:<br>${v.problems.slice(0,20).map(esc).join('<br>')}</div>`;
+  };
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  try { ME = await api('/api/me'); } catch { return; }
+  await loadSystem();
+  await refresh();
+}
+boot();
 </script>
 </body>
 </html>

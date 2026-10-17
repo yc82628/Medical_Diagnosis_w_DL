@@ -38,7 +38,7 @@ python preprocessing.py --csv demo_data/labels.csv --images demo_data/images
 python check_setup.py
 
 # 4. Verify the harness BEFORE trusting a model. No GPU, no torch, no data needed.
-python -m pytest -q          # expect 25 passed
+python -m pytest -q          # expect 94 passed
 
 # 5. Train. Selects on specificity@sensitivity-90, not accuracy.
 python train.py
@@ -47,8 +47,11 @@ python train.py
 python calibrate.py
 python model_card.py
 
-# 7. Run the grading platform. Works with or without a trained checkpoint.
-python service.py            # http://127.0.0.1:8000
+# 7. Run the grading platform. Create an account first; sign in at
+#    http://127.0.0.1:8000. A model that fails the acceptance gate is not
+#    served -- the platform runs in labelled DEMO mode instead.
+python auth.py create-user --username you --role admin
+python service.py
 ```
 
 For real data, run `prepare_aptos.py` before step 2 — it repairs missing file
@@ -94,7 +97,7 @@ internal and provisional.
 
 | File | Role |
 |---|---|
-| `config.py` | Single source of truth. `PreprocessConfig` is hashed into checkpoints. |
+| `config.py` | Single source of truth. `PreprocessConfig` is hashed into checkpoints; `AcceptanceConfig` sets the bar a model must clear to be served. |
 | `preprocessing.py` | FOV crop, Ben Graham normalisation, quality gate, cache builder |
 | `splits.py` | **Torch-free.** Patient-grouped stratified splits, ordinal encoding. Unit-tested. |
 | `dataset.py` | Torch layer only — augmentation and tensor loading |
@@ -105,8 +108,8 @@ internal and provisional.
 | `gradcam.py` | Grad-CAM + randomised-weights sanity check + shortcut-learning stats |
 | `prepare_aptos.py` | Cleans APTOS: fixes extensions, removes duplicate images, adds patient_id |
 | `pick_test_images.py` | Curated known-ground-truth batch for testing |
-| `check_setup.py` | Environment + config doctor; run when anything breaks |
 | `check_setup.py` | **Run this when anything breaks.** Diagnoses env + config, prints fixes |
+| `validate_quality_gate.py` | Measures the quality/anatomy gate against human gradability labels (EyeQ) |
 | `make_demo_data.py` | Synthetic fundus dataset for a known-good end-to-end run |
 | `requirements*.txt` | `.txt` core, `-dev` tests/lint, `-cpu` slim install, `-gpu` Windows/specific CUDA |
 
@@ -169,10 +172,16 @@ than no demo.
 
 | Piece | What it does |
 |---|---|
-| `predictor.py` | Locks the decision path: quality gate → preprocess → model → calibrate → abstain. An ungradable image never reaches the model. |
-| `audit.py` | Append-only SQLite log. Every prediction and grader verdict, with model version and preprocessing fingerprint. No pixels stored, only hashes. |
-| `service.py` | FastAPI: predict, worklist, verdict capture, provenance. |
+| `predictor.py` | Locks the decision path: quality gate → preprocess → model → calibrate → abstain. An ungradable image never reaches the model. `build_predictor` refuses a checkpoint that fails the acceptance gate. |
+| `audit.py` | Append-only (triggers) and hash-chained SQLite log: predictions, verdicts, sign-ins, case views, exports. `verify_chain` detects direct edits. Also the drift-monitoring rollup. No pixels here, only hashes. |
+| `storage.py` | Encrypted image store (Fernet). Originals, previews and Grad-CAM overlays are never written in plaintext. Retention purge; one-off encryption of legacy files. |
+| `auth.py` | Accounts with roles (photographer / grader / admin), PBKDF2 passwords, sessions, lockout, optional hospital SSO header. |
+| `encounters.py` | Patient-level visit decision from both eyes; grader verdicts override the model. |
+| `fhir.py` | HL7 FHIR R4 `DiagnosticReport` per visit, with SNOMED laterality. |
+| `dicom_io.py` | DICOM ingest: pixels plus PatientID, laterality, study and camera from tags. Never reads the patient name. |
+| `service.py` | FastAPI: sign-in, predict, worklist, verdicts, visits, FHIR, monitoring, audit verification. |
 | `webapp/index.html` | Grader review interface. Worklist ordered by clinical priority, not upload time. |
+| `Dockerfile`, `docker-compose.yml` | On-premise packaging behind the hospital TLS proxy. No data or keys in image layers. |
 | `model_card.py` | Generates `MODEL_CARD.md` from measured evaluation artifacts. |
 
 **The decision axis** is the interface's central element: the operating point,
@@ -182,7 +191,21 @@ boundary it was, and whether the system chose to defer.
 
 **The verdict capture is the feedback loop.** Grader agreement rate is the
 signal that detects post-deployment drift — the failure mode offline metrics
-cannot see.
+cannot see. The Monitoring view tracks it per week and per camera, alongside
+ungradable and referral rates, and raises alerts when they move.
+
+**Patients, not images.** Every upload carries a patient ID and eye (typed in,
+or read from DICOM tags). Images from one visit are combined: refer if either
+eye is referable; a visit with only one eye screened is INCOMPLETE, never
+ROUTINE. The visit exports as a FHIR `DiagnosticReport`, `preliminary` until a
+grader has reviewed every eye.
+
+**The model must earn its place.** `AcceptanceConfig` sets floors on AUROC,
+sensitivity, specificity, calibration error and the number of referable test
+cases, and requires an abstention band and an `evaluation.json` tied to the
+exact checkpoint by hash. A model that fails is not loaded; the banner lists
+why. `DR_ALLOW_UNVALIDATED_MODEL=1` overrides this for research only, and every
+prediction it makes is stored with `validated=0`.
 
 ## Anatomy & quality gates
 
@@ -224,14 +247,50 @@ without arguments.
 
 ## Running the platform safely
 
-`service.py` binds to `127.0.0.1` (this machine only) by default. Binding to a
-public address requires an explicit `--i-understand-this-is-not-a-medical-device`
-flag, because exposing it changes the legal and data-protection picture — see
-`INTENDED_USE.md`, section 7 (Regulatory position).
+`service.py` binds to `127.0.0.1` (this machine only) by default. Binding to
+any other address requires both the
+`--i-understand-this-is-not-a-medical-device` flag — exposing it changes the
+legal and data-protection picture, see `INTENDED_USE.md` section 7 — and TLS
+(`--ssl-certfile`/`--ssl-keyfile`, or `--behind-tls-proxy` when the hospital
+reverse proxy terminates TLS, as in `docker-compose.yml`).
 
-## Not built yet
+What protects patient data:
 
-- **DICOM ingest / structured output** for real PACS integration
-- **Learned OOD detector** to replace the heuristic anatomy gate
-- **`border_mass` badge** surfaced in the UI as an automatic shortcut-learning warning
-- **External validation wiring** beyond the single hook in `calibrate.py`
+- Sign-in required for everything except the page itself; roles limit who can
+  record verdicts and export reports. Verdicts are attributed to the account.
+- Images encrypted at rest under `DR_DATA_KEY` (or `secrets/data.key`, which
+  `.gitignore` excludes). Back the key up; schedule
+  `python storage.py purge --days N` for your retention period.
+- Every view, export and sign-in is in the hash-chained audit log.
+- Strict Content-Security-Policy; no third-party scripts or fonts.
+
+SQLite (WAL, one locked connection) is sized for one site running one
+instance. Running several instances behind a load balancer would need a
+server database such as PostgreSQL; that port is not done.
+
+## Not built yet — the path to clinical use
+
+Done in code: acceptance gate, accounts and roles, encryption at rest,
+tamper-evident audit, patient/visit linkage, FHIR output, DICOM input, drift
+monitoring, Grad-CAM border warning, quality-gate validator, Docker packaging.
+
+Still needed, none of which code alone can supply:
+
+- **A trained model.** The current checkpoint is 3 epochs on synthetic data
+  and fails every acceptance criterion. Train on APTOS + EyePACS on a GPU.
+- **External validation** on Messidor-2 and, before any pilot, on images from
+  the partner hospital's own cameras. Then set
+  `AcceptanceConfig.require_external_validation = True`.
+- **Quality-gate validation** against human labels:
+  `python validate_quality_gate.py` on EyeQ. Retune the thresholds from it.
+- **Maculopathy.** Many programmes refer for exudates near the fovea; this
+  model does not assess it (see `INTENDED_USE.md`).
+- **Learned OOD detector** to replace the heuristic anatomy gate (needs a
+  trained model first).
+- **PostgreSQL** for multi-instance deployments.
+- **Regulatory.** Clinical use makes this a medical device (EU MDR, likely
+  Class IIa; plus GDPR DPIA and EU AI Act). That needs a quality management
+  system (ISO 13485), lifecycle and risk files (IEC 62304, ISO 14971),
+  clinical evaluation and a notified body. The realistic first step is a
+  retrospective research study with a hospital partner under ethics approval,
+  with no output used for patient care.

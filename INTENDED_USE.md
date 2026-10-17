@@ -23,6 +23,11 @@ and outputs one of three states:
 | `ROUTINE` | No referable disease detected; continue routine screening interval |
 | `MANUAL REVIEW` | Model abstains, or image is ungradable; route to a human grader |
 
+Each image gets one of these. Each **visit** (both eyes of one patient) gets
+the most severe of its eyes' outcomes, using a grader's verdict where one
+exists, or `INCOMPLETE` if an eye has no result yet. `INCOMPLETE` is never
+`ROUTINE`.
+
 The system supports **prioritisation of a human grader's queue**. It does not
 diagnose, does not stage disease for treatment planning, and does not discharge
 patients from screening.
@@ -109,3 +114,5 @@ work were ever taken down that path.
 | Date | Change | Rationale |
 |---|---|---|
 | _(initial)_ | Scope defined: referral triage, ICDR ≥ 2 | Standard screening threshold |
+| 2026-10-18 | Visit-level output added: both eyes combined (refer if either is referable; `INCOMPLETE` if only one eye screened; grader verdicts override the model). Per-image outputs unchanged. | Screening refers patients, not images. Leaving the combination to the reader is an unmanaged step. |
+| 2026-10-18 | Models must pass `AcceptanceConfig` before they are served. | Section 4's metric is now enforced at load time, not only reported. |

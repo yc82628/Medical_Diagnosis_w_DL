@@ -130,9 +130,9 @@ from training and become "manual review" at serving time, never "healthy".**
 python -m pytest -q
 ```
 
-Expect `25 passed`. These need no GPU and no torch — they cover the
-leakage-critical splitting and the evaluation harness, which is where results
-actually get invalidated.
+Expect `94 passed`. These need no GPU and no torch — they cover the
+leakage-critical splitting, the evaluation harness, the model acceptance gate,
+and the serving layer (sign-in, encryption, audit chain, FHIR, DICOM).
 
 ## Step 8 — Train
 
@@ -156,7 +156,40 @@ python calibrate.py
 ```
 
 This fits calibration and freezes the operating point on **validation**, then
-touches test exactly once. Results land in `artifacts\evaluation.json`.
+touches test exactly once. Results land in `artifacts\evaluation.json`,
+tied to the exact checkpoint by its SHA-256.
+
+## Step 10 — Run the grading platform
+
+```bat
+pip install -r requirements-serve.txt
+python auth.py create-user --username yourname --role admin
+python service.py
+```
+
+Open http://127.0.0.1:8000 and sign in. Roles: `photographer` (upload),
+`grader` (verdicts, attention maps, FHIR export, monitoring), `admin`
+(everything, plus audit verification). Accounts are managed with `auth.py`
+only — there is no web page for it, on purpose.
+
+The service only uses your trained model if it passes the **acceptance gate**
+(`AcceptanceConfig` in `config.py`). Otherwise it starts in DEMO mode and the
+banner lists exactly which criteria failed. On demo data this is expected.
+To look at a failing model anyway (e.g. to try Grad-CAM), and never for
+anything else:
+
+```bat
+set DR_ALLOW_UNVALIDATED_MODEL=1
+python service.py
+```
+
+**Image encryption.** The first start generates `secrets\data.key`. Back it
+up: without it, stored images cannot be decrypted. If you ran an older version,
+encrypt the plaintext images it left behind once:
+
+```bat
+python storage.py encrypt-legacy
+```
 
 ---
 
@@ -204,6 +237,13 @@ cache lookup uses `Path(filename).stem`, so this resolves — but if you hit
 | `CUDA out of memory` | Batch too large for the card | `set DR_BATCH_SIZE=8` |
 | `torch.cuda.is_available()` → `False` | CPU-only wheel on Windows | `pip install -r requirements-gpu.txt` |
 | Training crashes with worker/pickle errors | Windows spawn semantics | `set DR_NUM_WORKERS=0` |
+| `Checkpoint ... was NOT loaded because it failed the acceptance gate` | The model does not meet `AcceptanceConfig` | Read the listed failures; retrain or re-run `calibrate.py`. Do not lower the thresholds to make it pass |
+| `evaluation.json does not record which checkpoint it measured` | Evaluated by an older `calibrate.py` | `python calibrate.py` |
+| Interface shows only a sign-in box you cannot pass | No account yet | `python auth.py create-user --username you --role admin` |
+| `Account temporarily locked` | 5 wrong passwords | Wait 15 minutes |
+| `... could not be decrypted: wrong DR_DATA_KEY` | Key changed or lost | Restore `secrets\data.key` (or `DR_DATA_KEY`) from your backup |
+| `Patient ID is required` on upload | PNG/JPEG carry no patient | Fill in patient ID and eye before dropping images; DICOM fills them from its tags |
+| `Could not decode the pixel data` for a DICOM | Compressed DICOM | `pip install pylibjpeg pylibjpeg-openjpeg` |
 
 ## If you are still stuck
 
