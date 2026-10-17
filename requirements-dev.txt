@@ -10,3 +10,6 @@ pytest>=7.4
 # Linting. pyflakes catches the stale-import and placeholder-less-f-string
 # class of bug that is otherwise invisible until runtime.
 ruff>=0.6
+
+# FastAPI's TestClient, used by test_service.py.
+httpx>=0.27

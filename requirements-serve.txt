@@ -12,3 +12,9 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9      # required by FastAPI for file uploads
+# Images are encrypted at rest (storage.py). Fernet = AES-128-CBC + HMAC-SHA256.
+cryptography>=42.0
+
+# DICOM ingest (dicom_io.py). Compressed DICOM (JPEG, JPEG 2000) additionally
+# needs a decoder plugin:  pip install pylibjpeg pylibjpeg-openjpeg
+pydicom>=3.0

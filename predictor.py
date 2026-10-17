@@ -1,6 +1,7 @@
 from __future__ import annotations
  
 import hashlib
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -60,6 +61,9 @@ class BasePredictor:
         self.is_demo = is_demo
         self.validated = False      # set by build_predictor once the gate passes
         self.acceptance_failures: list[str] = []
+        # Serialises model use. Grad-CAM registers hooks on the shared model; a
+        # prediction running concurrently would fire them mid-explanation.
+        self.lock = threading.Lock()
  
     # -- to be implemented -------------------------------------------------
     def _score(self, img_bgr: np.ndarray) -> tuple[float, np.ndarray]:
@@ -104,7 +108,8 @@ class BasePredictor:
                 latency_ms=(time.perf_counter() - t0) * 1000, **base,
             )
  
-        prob, cum = self._score(img_bgr)
+        with self.lock:
+            prob, cum = self._score(img_bgr)
         grade = int((np.minimum.accumulate(cum) > 0.5).sum())
  
         reasons = []
