@@ -266,16 +266,34 @@ def abstention_bands(y_prob, threshold, coverage: float) -> tuple[float, float]:
     )
 
 
-def abstention_curve(y_true, y_prob, threshold, coverages=None) -> pd.DataFrame:
+def abstention_curve(y_true, y_prob, threshold, coverages=None,
+                     band_source_prob=None) -> pd.DataFrame:
+    """
+    Coverage / performance trade-off under abstention.
+
+    `band_source_prob` is where the band edges are FITTED. Pass the validation
+    probabilities: the band is then frozen and applied to `y_prob` (test),
+    exactly like the operating point. Fitting the band on test would leak, the
+    same way choosing the threshold on test would. If omitted, the band is
+    fitted on `y_prob` itself (only appropriate for exploratory use).
+
+    Each row records `band_low` / `band_high` -- the serving predictor reads
+    these from evaluation.json to route borderline cases to a human.
+    """
     y_true = np.asarray(y_true).astype(int)
     y_prob = np.asarray(y_prob, dtype=float)
+    src = y_prob if band_source_prob is None else np.asarray(band_source_prob, dtype=float)
     coverages = coverages or [1.0, 0.95, 0.90, 0.85, 0.80, 0.70, 0.60]
 
     rows = []
     for cov in coverages:
-        lo, hi = abstention_bands(y_prob, threshold, cov)
-        keep = (y_prob <= lo) | (y_prob >= hi)
-        row = {"target_coverage": cov, "actual_coverage": float(keep.mean()),
+        lo, hi = abstention_bands(src, threshold, cov)
+        if cov >= 1.0:
+            keep = np.ones_like(y_prob, dtype=bool)   # no band at full coverage
+        else:
+            keep = (y_prob <= lo) | (y_prob >= hi)
+        row = {"target_coverage": cov, "band_low": float(lo), "band_high": float(hi),
+               "actual_coverage": float(keep.mean()),
                "n_retained": int(keep.sum()), "n_referred_to_human": int((~keep).sum())}
         if keep.sum() and 0 < y_true[keep].sum() < keep.sum():
             m = screening_metrics(y_true[keep], y_prob[keep], threshold)

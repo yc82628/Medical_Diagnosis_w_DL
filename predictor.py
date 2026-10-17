@@ -9,7 +9,7 @@ import cv2
 import numpy as np
  
 from config import PreprocessConfig, REFERABLE_THRESHOLD, ICDR_GRADES
-from preprocessing import assess_quality, preprocess_image
+from preprocessing import assess_quality, preprocess_image, verify_is_fundus
  
  
 # ---------------------------------------------------------------------------
@@ -65,6 +65,21 @@ class BasePredictor:
         sha = hashlib.sha256(img_bgr.tobytes()).hexdigest()[:16]
  
         quality = assess_quality(img_bgr)
+
+        # Anatomy gate. Something that is not a retina (a document, a wall, an
+        # X-ray) must never reach the model: it would return a confident number
+        # that no offline metric can catch. A non-fundus input is treated as
+        # ungradable, so it follows the same MANUAL_REVIEW path, is logged with
+        # gradable=0, and gets no Grad-CAM.
+        fundus = verify_is_fundus(img_bgr)
+        quality["is_fundus"] = bool(fundus["is_fundus"])
+        quality["fundus_score"] = float(fundus["score"])
+        if not fundus["is_fundus"]:
+            quality["gradable"] = False
+            quality["reasons"] = list(quality["reasons"]) + [
+                "does not look like a retinal photograph: "
+                + "; ".join(fundus["reasons"] or ["anatomy check failed"])
+            ]
         base = dict(
             quality=quality, operating_point=self.operating_point,
             abstain_low=self.abstain_low, abstain_high=self.abstain_high,
@@ -252,4 +267,13 @@ def build_predictor(checkpoint_path="checkpoints/best_model.pt",
     if not ev.exists():
         note += (" No artifacts/evaluation.json found, so calibration and the "
                  "abstention band are NOT applied. Run calibrate.py.")
+    elif lo is None or hi is None:
+        # Older evaluation.json files did not record band edges. Say so loudly
+        # rather than silently auto-deciding the borderline cases.
+        note += (f" No abstention band for {target_coverage:.0%} coverage in "
+                 f"{ev}, so borderline cases are NOT routed to a human. "
+                 f"Re-run calibrate.py.")
+    else:
+        note += (f" Abstention band {lo:.3f}-{hi:.3f} "
+                 f"({target_coverage:.0%} coverage) is active.")
     return p, note

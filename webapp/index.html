@@ -239,19 +239,25 @@ const api = (p,o) => fetch(p,o).then(r => r.ok ? r.json() : r.json().then(e => P
 let SYS = null, CASES = [], CURRENT = null, PICKED = null;
 
 const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review', UNGRADABLE:'Ungradable'};
+// Escape every server-supplied string before it goes into innerHTML. Filenames
+// come from whoever uploads the image and grader names are free text, so an
+// unescaped value like <img src=x onerror=...> would run script in every
+// grader's browser that opens the worklist.
+const esc = v => v == null ? '' : String(v).replace(/[&<>"']/g,
+  ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const pct = v => v == null ? '—' : (v*100).toFixed(0) + '%';
 
 /* ---------- system ---------- */
 async function loadSystem(){
   SYS = await api('/api/system');
   $('#meta').innerHTML = `
-    <div><span class="eyebrow">Mode</span><span class="v" style="color:${SYS.mode==='DEMO'?'var(--amber)':'var(--routine)'}">${SYS.mode}</span></div>
-    <div><span class="eyebrow">Model</span><span class="v">${SYS.model_version}</span></div>
+    <div><span class="eyebrow">Mode</span><span class="v" style="color:${SYS.mode==='DEMO'?'var(--amber)':'var(--routine)'}">${esc(SYS.mode)}</span></div>
+    <div><span class="eyebrow">Model</span><span class="v">${esc(SYS.model_version)}</span></div>
     <div><span class="eyebrow">Operating point</span><span class="v">${SYS.operating_point?.toFixed(3) ?? '—'}</span></div>
-    <div><span class="eyebrow">Preprocessing</span><span class="v">${SYS.preprocess_fingerprint}</span></div>`;
+    <div><span class="eyebrow">Preprocessing</span><span class="v">${esc(SYS.preprocess_fingerprint)}</span></div>`;
   if (SYS.mode === 'DEMO'){
     $('#scope').innerHTML = `<b>Demo mode — outputs are not from a trained model</b>
-      <span>${SYS.note} Research software, not a medical device.</span>`;
+      <span>${esc(SYS.note)} Research software, not a medical device.</span>`;
   }
 }
 
@@ -292,10 +298,10 @@ async function refresh(){
   CASES = (await api('/api/cases')).cases;
   $('#count').textContent = CASES.length ? `${CASES.length} case${CASES.length>1?'s':''}` : '';
   $('#list').innerHTML = CASES.map(c => `
-    <div class="case ${c.decision} ${c.case_id===CURRENT?'on':''}" data-id="${c.case_id}" tabindex="0">
+    <div class="case ${c.decision} ${c.case_id===CURRENT?'on':''}" data-id="${esc(c.case_id)}" tabindex="0">
       <div class="bar"></div>
       <div>
-        <div class="fn">${c.filename || c.case_id}</div>
+        <div class="fn">${esc(c.filename || c.case_id)}</div>
         <div class="st">${LABEL[c.decision]}${c.latest_verdict ? ' · graded ' + LABEL[c.latest_verdict] : ''}</div>
       </div>
       <div class="p">${pct(c.probability)}</div>
@@ -350,14 +356,14 @@ async function select(id){
 
   $('#stage').innerHTML = `
     <div class="top">
-      <h2>${c.filename || id}</h2>
+      <h2>${esc(c.filename || id)}</h2>
       <span class="tag ${c.decision}">${LABEL[c.decision]}</span>
-      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">case ${id}</span>
+      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">case ${esc(id)}</span>
     </div>
     <div class="grid">
       <figure>
         <div class="imgwrap">
-          <img id="baseImg" src="/api/cases/${id}/image" alt="Fundus photograph for case ${id}">
+          <img id="baseImg" src="/api/cases/${encodeURIComponent(id)}/image" alt="Fundus photograph for case ${esc(id)}">
           <img id="camImg" class="cam-layer" alt="Grad-CAM attention overlay">
         </div>
         <div class="figbar">
@@ -370,7 +376,7 @@ async function select(id){
         <div class="card">
           <h3>Decision</h3>
           ${axis(c.probability)}
-          <ul class="reasons">${(p.reasons||[]).map(r => `<li>${r}</li>`).join('')}</ul>
+          <ul class="reasons">${(p.reasons||[]).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
         </div>
 
         <div class="card">
@@ -384,13 +390,14 @@ async function select(id){
           <button id="save" disabled>Record verdict</button>
           ${c.verdicts.length ? `<h3 style="margin-top:17px">Audit trail</h3>
             <div class="trail">${c.verdicts.map(v =>
-              `<div>${v.created_utc} · ${LABEL[v.verdict]||v.verdict} · ${v.grader||'unattributed'}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}</div>`).join('')}</div>` : ''}
+              `<div>${esc(v.created_utc)} · ${esc(LABEL[v.verdict]||v.verdict)} · ${esc(v.grader||'unattributed')}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}</div>`).join('')}</div>` : ''}
         </div>
 
         <div class="card">
           <h3>Image quality</h3>
           <table class="kv">
             <tr><td>Gradable</td><td style="color:${c.gradable?'var(--routine)':'var(--review)'}">${c.gradable?'Yes':'No'}</td></tr>
+            <tr><td>Looks like a retina</td><td style="color:${q.is_fundus===false?'var(--review)':'inherit'}">${q.is_fundus==null?'—':(q.is_fundus?'Yes':'No')}</td></tr>
             <tr><td>Field of view</td><td>${q.fov_fraction!=null?q.fov_fraction.toFixed(2):'—'}</td></tr>
             <tr><td>Sharpness</td><td>${q.blur_var!=null?q.blur_var.toFixed(1):'—'}</td></tr>
             <tr><td>Mean intensity</td><td>${q.mean_intensity!=null?q.mean_intensity.toFixed(1):'—'}</td></tr>
@@ -400,12 +407,12 @@ async function select(id){
         <div class="card">
           <h3>Provenance</h3>
           <table class="kv">
-            <tr><td>Model</td><td>${c.model_version}</td></tr>
-            <tr><td>Preprocessing</td><td>${c.preprocess_fp}</td></tr>
+            <tr><td>Model</td><td>${esc(c.model_version)}</td></tr>
+            <tr><td>Preprocessing</td><td>${esc(c.preprocess_fp)}</td></tr>
             <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
             <tr><td>Indicative ICDR grade</td><td>${c.grade ?? '—'}</td></tr>
-            <tr><td>Recorded</td><td>${c.created_utc}</td></tr>
-            <tr><td>Image hash</td><td>${c.image_sha256}</td></tr>
+            <tr><td>Recorded</td><td>${esc(c.created_utc)}</td></tr>
+            <tr><td>Image hash</td><td>${esc(c.image_sha256)}</td></tr>
           </table>
         </div>
       </div>

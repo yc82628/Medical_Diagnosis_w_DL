@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -55,7 +56,10 @@ def main(cfg: Config = CONFIG):
           .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
     print("\n[3/4] Abstention / coverage trade-off")
-    ab = abstention_curve(test["y_referable"], test_prob, thr)
+    # Band edges are fitted on VALIDATION and frozen, like the operating point,
+    # then applied to test. These edges are what the serving predictor uses.
+    ab = abstention_curve(test["y_referable"], test_prob, thr,
+                          band_source_prob=val_prob)
     print(ab.to_string(index=False, float_format=lambda v: f"{v:.3f}"))
     print("  Read this as: 'at X% coverage the system auto-decides X% of cases "
           "at this sensitivity, and routes the rest to a human grader.'")
@@ -78,9 +82,21 @@ def main(cfg: Config = CONFIG):
     ext = None
     if cfg.data.external_csv_path:
         print("\n[bonus] External (different-source) validation")
-        ecfg = Config(**{**cfg.__dict__})
+        if not cfg.data.external_cache_dir:
+            raise SystemExit(
+                "\n  data.external_csv_path is set but data.external_cache_dir is not."
+                "\n  The external set needs its own preprocessed cache; reusing the"
+                "\n  internal one would evaluate the wrong images. Build it with:"
+                "\n      python preprocessing.py --csv <external csv> --images <external images>"
+                "\n          --cache <external cache> --filename-col <col>"
+                "\n  then set DR_EXTERNAL_CACHE=<external cache> in dr.env."
+            )
+        # Deep copy: a shallow copy shares the DataConfig object, so editing
+        # ecfg.data would silently overwrite the internal config as well.
+        ecfg = copy.deepcopy(cfg)
         ecfg.data.csv_path = cfg.data.external_csv_path
         ecfg.data.images_dir = cfg.data.external_images_dir
+        ecfg.data.cache_dir = cfg.data.external_cache_dir
         edf = load_labels(ecfg.data)
         e = predict(model, _loader(edf, ecfg, pc), device)
         eprob = cal.predict(e["referable_logit"])

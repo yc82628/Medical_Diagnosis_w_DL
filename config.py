@@ -100,6 +100,11 @@ class DataConfig:
     # Leave as None during development; results without it are provisional.
     external_csv_path: str | None = None
     external_images_dir: str | None = None
+    # Preprocessed cache for the external set. Must be its own folder: sharing
+    # the internal cache would read the wrong images and apply the internal
+    # quality report. Build it with preprocessing.py using the same settings
+    # the checkpoint was trained with.
+    external_cache_dir: str | None = None
  
  
 @dataclass
@@ -155,6 +160,7 @@ _ENV_MAP = {
     "DR_PATIENT_SOURCE": ("data", "patient_id_source", str),
     "DR_EXTERNAL_CSV":   ("data", "external_csv_path", str),
     "DR_EXTERNAL_IMAGES": ("data", "external_images_dir", str),
+    "DR_EXTERNAL_CACHE": ("data", "external_cache_dir", str),
     "DR_IMAGE_SIZE":     ("preprocess", "image_size", int),
     "DR_BACKBONE":       ("train", "backbone", str),
     "DR_BATCH_SIZE":     ("train", "batch_size", int),

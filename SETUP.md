@@ -130,7 +130,7 @@ from training and become "manual review" at serving time, never "healthy".**
 python -m pytest -q
 ```
 
-Expect `20 passed`. These need no GPU and no torch — they cover the
+Expect `25 passed`. These need no GPU and no torch — they cover the
 leakage-critical splitting and the evaluation harness, which is where results
 actually get invalidated.
 

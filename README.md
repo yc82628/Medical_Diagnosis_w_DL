@@ -38,7 +38,7 @@ python preprocessing.py --csv demo_data/labels.csv --images demo_data/images
 python check_setup.py
 
 # 4. Verify the harness BEFORE trusting a model. No GPU, no torch, no data needed.
-python -m pytest -q          # expect 20 passed
+python -m pytest -q          # expect 25 passed
 
 # 5. Train. Selects on specificity@sensitivity-90, not accuracy.
 python train.py
@@ -85,7 +85,9 @@ of them on both sides of the split**.
 | EyePACS / Kaggle DR | ~88k | scale; `patient_left/right` filenames |
 | Messidor-2 | ~1.7k | **external test set** — different source, do not merge |
 
-Set `DataConfig.external_csv_path` to Messidor-2. Until you do, every number is
+Set `DataConfig.external_csv_path` to Messidor-2 and `external_cache_dir` to its
+own preprocessed cache (`DR_EXTERNAL_CSV`, `DR_EXTERNAL_IMAGES`, `DR_EXTERNAL_CACHE`
+in `dr.env`). Until you do, every number is
 internal and provisional.
 
 ## Module map
