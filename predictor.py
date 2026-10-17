@@ -47,6 +47,33 @@ class Prediction:
  
 # ---------------------------------------------------------------------------
  
+def run_gates(img_bgr: np.ndarray) -> dict:
+    """
+    Quality gate + anatomy gate, exactly as the serving path applies them.
+    Shared with validate_quality_gate.py so the validator measures the real
+    gate, not a re-implementation of it.
+    """
+    quality = assess_quality(img_bgr)
+
+    # Anatomy gate. Something that is not a retina (a document, a wall, an
+    # X-ray) must never reach the model: it would return a confident number
+    # that no offline metric can catch. A non-fundus input is treated as
+    # ungradable, so it follows the same MANUAL_REVIEW path, is logged with
+    # gradable=0, and gets no Grad-CAM.
+    fundus = verify_is_fundus(img_bgr)
+    quality["is_fundus"] = bool(fundus["is_fundus"])
+    quality["fundus_score"] = float(fundus["score"])
+    if not fundus["is_fundus"]:
+        quality["gradable"] = False
+        quality["reasons"] = list(quality["reasons"]) + [
+            "does not look like a retinal photograph: "
+            + "; ".join(fundus["reasons"] or ["anatomy check failed"])
+        ]
+    return quality
+
+
+# ---------------------------------------------------------------------------
+
 class BasePredictor:
     """Shared decision logic. Subclasses supply `_score(image) -> (logit, cum_probs)`."""
  
@@ -74,22 +101,7 @@ class BasePredictor:
         t0 = time.perf_counter()
         sha = hashlib.sha256(img_bgr.tobytes()).hexdigest()[:16]
  
-        quality = assess_quality(img_bgr)
-
-        # Anatomy gate. Something that is not a retina (a document, a wall, an
-        # X-ray) must never reach the model: it would return a confident number
-        # that no offline metric can catch. A non-fundus input is treated as
-        # ungradable, so it follows the same MANUAL_REVIEW path, is logged with
-        # gradable=0, and gets no Grad-CAM.
-        fundus = verify_is_fundus(img_bgr)
-        quality["is_fundus"] = bool(fundus["is_fundus"])
-        quality["fundus_score"] = float(fundus["score"])
-        if not fundus["is_fundus"]:
-            quality["gradable"] = False
-            quality["reasons"] = list(quality["reasons"]) + [
-                "does not look like a retinal photograph: "
-                + "; ".join(fundus["reasons"] or ["anatomy check failed"])
-            ]
+        quality = run_gates(img_bgr)
         base = dict(
             quality=quality, operating_point=self.operating_point,
             abstain_low=self.abstain_low, abstain_high=self.abstain_high,

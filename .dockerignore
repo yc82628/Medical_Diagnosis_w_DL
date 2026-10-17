@@ -1,0 +1,20 @@
+# Keep data, secrets and environments out of the build context entirely --
+# not just out of the final image.
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+artifacts
+checkpoints
+secrets
+.env
+demo_data
+aptos
+*.png
+*.jpg
+*.jpeg
+*.zip
+tests
+test_*.py

@@ -445,3 +445,9 @@ def test_security_headers(env):
     r = TestClient(app).get("/")
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
     assert r.headers["x-frame-options"] == "DENY"
+
+
+def test_health_is_public_and_says_nothing(env):
+    app, *_ = env
+    r = TestClient(app).get("/api/health")
+    assert r.status_code == 200 and r.json() == {"status": "ok"}

@@ -13,6 +13,7 @@ Every endpoint except the interface itself and sign-in requires an account.
 
 Endpoints                                          roles
     GET  /                       interface         public
+    GET  /api/health             liveness          public
     POST /api/login | /api/logout | GET /api/me    public / signed in
     GET  /api/system             provenance        any
     POST /api/predict            upload + decide   any (multipart: file, patient_id,
@@ -215,6 +216,11 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
                 f"Re-download <code>webapp/index.html</code>.", str(f.resolve())),
                 status_code=500)
         return HTMLResponse(html)
+
+    @app.get("/api/health")
+    def health():
+        """Liveness for container orchestration. Reveals nothing about the data."""
+        return {"status": "ok"}
 
     @app.post("/api/login")
     def login(body: LoginIn, response: Response):
@@ -500,6 +506,10 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--ssl-certfile", help="TLS certificate (PEM). Required off-localhost.")
     ap.add_argument("--ssl-keyfile", help="TLS private key (PEM).")
+    ap.add_argument("--behind-tls-proxy", action="store_true",
+                    help="A TLS-terminating reverse proxy sits in front (the Docker "
+                         "deployment). Satisfies the TLS requirement and marks "
+                         "cookies Secure.")
     ap.add_argument("--i-understand-this-is-not-a-medical-device",
                     action="store_true", dest="acknowledged",
                     help="Required in order to bind to a non-local address.")
@@ -507,6 +517,7 @@ if __name__ == "__main__":
 
     LOCAL = {"127.0.0.1", "localhost", "::1"}
     tls = bool(args.ssl_certfile and args.ssl_keyfile)
+    secure_transport = tls or args.behind_tls_proxy
 
     print("=" * 66)
     print("  DR Screening Platform")
@@ -522,19 +533,21 @@ if __name__ == "__main__":
                 "    Art. 9), and offering software for clinical use engages medical\n"
                 "    device regulation. See INTENDED_USE.md section 7. Re-run with\n"
                 "    --i-understand-this-is-not-a-medical-device once considered.")
-        if not tls:
+        if not secure_transport:
             problems.append(
                 "  - No TLS. Passwords, session cookies and patient images would\n"
                 "    cross the network in clear text. Pass --ssl-certfile and\n"
-                "    --ssl-keyfile, or bind 127.0.0.1 behind a TLS reverse proxy.")
+                "    --ssl-keyfile, or run behind a TLS reverse proxy and pass\n"
+                "    --behind-tls-proxy.")
         if problems:
             raise SystemExit(f"\n  Refusing to bind to {args.host}:\n\n"
                              + "\n\n".join(problems) + "\n")
-        print(f"\n  ! Bound to {args.host} over TLS -- reachable beyond this machine.")
+        via = "TLS" if tls else "a TLS reverse proxy"
+        print(f"\n  ! Bound to {args.host} via {via} -- reachable beyond this machine.")
     else:
         print("  Network: this machine only (127.0.0.1). Not reachable externally.")
 
-    if tls:
+    if secure_transport:
         os.environ.setdefault("DR_COOKIE_SECURE", "1")
 
     application = create_app()

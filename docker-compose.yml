@@ -1,0 +1,37 @@
+# docker compose up --build
+#
+# Before the first start:
+#   1. Put a TLS-terminating reverse proxy (the hospital's standard one) in
+#      front of port 8000. The port below is published on 127.0.0.1 only, so
+#      nothing reaches the container except through that proxy.
+#   2. Create .env next to this file with the image-encryption key:
+#         DR_DATA_KEY=<output of: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
+#      Store a copy in the hospital's secret store. Losing it makes every
+#      stored image unreadable. Never commit .env.
+#   3. Copy checkpoints/best_model.pt and artifacts/evaluation.json into the
+#      volumes. A model that fails the acceptance gate is not served.
+#   4. Create the first account:
+#         docker compose run --rm dr python auth.py create-user --username admin --role admin
+
+services:
+  dr:
+    build: .
+    image: dr-screening:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: .env
+    environment:
+      DR_COOKIE_SECURE: "1"
+      # Hospital single sign-on via the reverse proxy (see auth.py). Enable
+      # only if the proxy is the sole way in.
+      # DR_SSO_HEADER: X-Forwarded-User
+      # DR_PATIENT_ID_SYSTEM: https://hospital.example/fhir/mrn
+      # Retention: schedule  docker compose run --rm dr python storage.py purge --days N
+    volumes:
+      - dr-artifacts:/app/artifacts
+      - dr-checkpoints:/app/checkpoints:ro
+
+volumes:
+  dr-artifacts:
+  dr-checkpoints:

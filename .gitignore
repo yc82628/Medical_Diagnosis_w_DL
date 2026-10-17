@@ -23,3 +23,6 @@ demo_data/cache_512/
 # Image-encryption key (storage.py). NEVER commit: anyone with it can read
 # every stored patient image. Back it up somewhere safe instead.
 secrets/
+
+# Deployment secrets for docker compose (DR_DATA_KEY). Never commit.
+.env
