@@ -15,9 +15,11 @@ checkpoints/
 # calibrate.py, model_card.py and service.py
 artifacts/
 
-# Synthetic demo data - re-create with: python make_demo_data.py --out demo_data --patients 80
-# (demo_data/labels.csv and the placeholder file are already on GitHub and stay tracked)
-demo_data/images/
+# Synthetic demo data. The 160 images in demo_data/images/ ARE tracked, via
+# Git LFS (see .gitattributes) -- they are synthetic, so safe to publish, and
+# LFS keeps clones of the code fast. They regenerate exactly with:
+#     python make_demo_data.py --out demo_data --patients 80
+# The preprocessed cache is derived data; rebuild it with preprocessing.py.
 demo_data/cache_512/
 
 # Image-encryption key (storage.py). NEVER commit: anyone with it can read
