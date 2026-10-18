@@ -266,6 +266,32 @@ def test_migration_adds_columns_to_old_database(tmp_path):
     assert audit.case_detail(con, "aaa")["decision"] == "ROUTINE"
 
 
+def test_old_rows_are_anchored_into_the_chain(tmp_path):
+    """Rows written before the hash chain existed get covered by it."""
+    db = tmp_path / "old.db"
+    con = audit.connect(db)
+    # Simulate pre-chain rows: insert directly, bypassing log_prediction.
+    con.execute("""INSERT INTO predictions (case_id, created_utc, image_sha256,
+        decision, gradable, model_version, preprocess_fp, is_demo, payload_json)
+        VALUES ('aaa','2026-01-01T00:00:00+00:00','h','ROUTINE',1,'m','fp',1,'{}')""")
+    con.execute("""INSERT INTO verdicts (verdict_id, case_id, created_utc, verdict)
+        VALUES ('vvv','aaa','2026-01-02T00:00:00+00:00','REFER')""")
+    con.commit(); con.close()
+
+    con = audit.connect(db)
+    res = audit.verify_chain(con)
+    assert res["ok"] and res["entries"] == 2, res
+    con.close()
+    con = audit.connect(db)                      # reconnecting does not re-anchor
+    assert audit.verify_chain(con)["entries"] == 2
+
+    con.execute("DROP TRIGGER verdicts_no_update")
+    con.execute("UPDATE verdicts SET verdict='ROUTINE' WHERE verdict_id='vvv'")
+    con.commit()
+    res = audit.verify_chain(con)
+    assert not res["ok"] and any("verdicts row vvv altered" in p for p in res["problems"])
+
+
 # -- summary statistics -----------------------------------------------------------
 
 def test_agreement_counts_each_case_once_by_latest_verdict(env):

@@ -106,7 +106,9 @@ class ImageStore:
                        raw_dir="artifacts/raw") -> int:
         """
         Older versions wrote plaintext JPEG previews and PNG originals. Encrypt
-        each into the store, then delete the plaintext.
+        each into the store, read it back, and delete the plaintext only once
+        the decrypted copy matches it byte for byte. A file that fails the
+        check is left where it is.
         """
         n = 0
         for folder, kind, pattern in ((raw_dir, "raw", "*.png"),
@@ -117,7 +119,11 @@ class ImageStore:
                 case_id = stem.removesuffix("_gradcam")
                 if not case_id.isalnum():
                     continue
-                self.put(case_id, k, p.read_bytes())
+                original = p.read_bytes()
+                self.put(case_id, k, original)
+                if self.get(case_id, k) != original:
+                    print(f"  ! {p} did not round-trip; plaintext kept.")
+                    continue
                 p.unlink()
                 n += 1
         return n

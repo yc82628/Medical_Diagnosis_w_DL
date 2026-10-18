@@ -152,8 +152,39 @@ def connect(db_path: Path | str = DB_PATH) -> LockedConnection:
                     f"CREATE TRIGGER IF NOT EXISTS {t}_no_{op.lower()} "
                     f"BEFORE {op} ON {t} BEGIN "
                     f"SELECT RAISE(ABORT, '{t} is append-only'); END")
+        _anchor_unchained(con)
         con.commit()
     return con
+
+
+def _anchor_unchained(con) -> None:
+    """
+    Give every prediction and verdict that has no chain entry one now.
+
+    Rows written before the hash chain existed would otherwise sit outside it,
+    and an edit to them would go unnoticed. Anchoring proves nothing about
+    what happened to a row BEFORE this moment -- the entry says so with
+    legacy_anchor=True -- but from here on it is covered like any other.
+    Idempotent: a row is anchored once. Caller holds con.lock.
+    """
+    preds = con.execute(
+        """SELECT * FROM predictions WHERE case_id NOT IN
+             (SELECT entity_id FROM audit_log WHERE action='prediction')
+           ORDER BY created_utc, rowid""").fetchall()
+    for r in preds:
+        _append(con, "migration", "prediction", r["case_id"],
+                {"decision": r["decision"], "legacy_anchor": True},
+                record_hash(dict(r)))
+    verdicts = con.execute(
+        """SELECT * FROM verdicts WHERE verdict_id NOT IN
+             (SELECT json_extract(detail, '$.verdict_id') FROM audit_log
+               WHERE action='verdict')
+           ORDER BY created_utc, rowid""").fetchall()
+    for r in verdicts:
+        _append(con, "migration", "verdict", r["case_id"],
+                {"verdict_id": r["verdict_id"], "verdict": r["verdict"],
+                 "legacy_anchor": True},
+                record_hash(dict(r)))
 
 
 # -- hash chain ----------------------------------------------------------------

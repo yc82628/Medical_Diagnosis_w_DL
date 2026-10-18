@@ -19,8 +19,14 @@
 #   in model.py picks it up automatically. Do not use this file.
 # ---------------------------------------------------------------------------
 #
-# Pick the tag matching your driver (check with: nvidia-smi):
-#   cu118 / cu121 / cu124 / cu126 / cu128
+# Pick the tag matching your GPU and driver (check with: nvidia-smi):
+#   cu126 / cu128 / cu130
+#
+# RTX 50-series (Blackwell: 5060-5090, laptop or desktop) needs cu128 or newer
+# and torch>=2.7. Older wheels (cu124 and below) install fine, report
+# cuda.is_available() == True, then fail on the first kernel with "no kernel
+# image is available for execution on the device". cu128 also covers every
+# older card back to the GTX 10-series, so it is the default here.
 #
 #   pip install -r requirements-gpu.txt
 #   pip install -r requirements.txt
@@ -31,6 +37,6 @@
 #
 #   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 
---extra-index-url https://download.pytorch.org/whl/cu124
-torch>=2.4,<3.0
-torchvision>=0.19,<1.0
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch>=2.7,<3.0
+torchvision>=0.22,<1.0
