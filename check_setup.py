@@ -127,8 +127,11 @@ def check_torch():
         is_win = platform.system() == "Windows"
         report(WARN, "No GPU detected -- training will fall back to CPU",
                "a 512px epoch takes hours instead of minutes",
-               ("On Windows the default PyPI torch wheel is CPU-ONLY. Install the\n"
-                "CUDA build:  pip install -r requirements-gpu.txt\n"
+               ("On Windows the default PyPI torch wheel is CPU-ONLY. Replace it with\n"
+                "the CUDA build (uninstall first: pip sees the CPU build as already\n"
+                "satisfying the requirement and would otherwise do nothing):\n"
+                "    pip uninstall -y torch torchvision\n"
+                "    pip install -r requirements-gpu.txt\n"
                 "Then re-check: python -c \"import torch; print(torch.cuda.is_available())\""
                 if is_win else
                 "If you have an NVIDIA GPU, check drivers with: nvidia-smi\n"

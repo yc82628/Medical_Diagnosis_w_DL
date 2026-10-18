@@ -235,7 +235,8 @@ cache lookup uses `Path(filename).stem`, so this resolves — but if you hit
 | `RuntimeError: Cache fingerprint mismatch` | Preprocessing settings changed | Delete the cache folder and rebuild (Step 6) |
 | `RuntimeError: PATIENT LEAKAGE` | The guard caught a real bug | Do not bypass this. Your split is invalid. |
 | `CUDA out of memory` | Batch too large for the card | `set DR_BATCH_SIZE=8` |
-| `torch.cuda.is_available()` → `False` | CPU-only wheel on Windows | `pip install -r requirements-gpu.txt` |
+| `torch.cuda.is_available()` → `False` | CPU-only wheel on Windows | `pip uninstall -y torch torchvision` then `pip install -r requirements-gpu.txt`. Uninstall first: pip treats the CPU build as already satisfying the requirement |
+| `no kernel image is available for execution on the device` | PyTorch built for an older CUDA than your GPU needs (RTX 50-series needs CUDA 12.8+) | As above; `requirements-gpu.txt` picks the right build |
 | Training crashes with worker/pickle errors | Windows spawn semantics | `set DR_NUM_WORKERS=0` |
 | `Checkpoint ... was NOT loaded because it failed the acceptance gate` | The model does not meet `AcceptanceConfig` | Read the listed failures; retrain or re-run `calibrate.py`. Do not lower the thresholds to make it pass |
 | `evaluation.json does not record which checkpoint it measured` | Evaluated by an older `calibrate.py` | `python calibrate.py` |

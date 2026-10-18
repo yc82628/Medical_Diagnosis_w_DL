@@ -19,17 +19,24 @@
 #   in model.py picks it up automatically. Do not use this file.
 # ---------------------------------------------------------------------------
 #
-# Pick the tag matching your GPU and driver (check with: nvidia-smi):
-#   cu126 / cu128 / cu130
+# Pick the tag your DRIVER supports. `nvidia-smi` prints it top right as
+# "CUDA Version: X":
+#   CUDA Version 13.x  -> cu130 (default below; torch 2.9 and newer)
+#   CUDA Version 12.8+ -> cu128, and cap torch at <2.12 (the last cu128 build)
 #
-# RTX 50-series (Blackwell: 5060-5090, laptop or desktop) needs cu128 or newer
-# and torch>=2.7. Older wheels (cu124 and below) install fine, report
-# cuda.is_available() == True, then fail on the first kernel with "no kernel
-# image is available for execution on the device". cu128 also covers every
-# older card back to the GTX 10-series, so it is the default here.
+# RTX 50-series (Blackwell: 5060-5090, laptop or desktop) needs cu128 or newer.
+# Older wheels (cu124 and below) install fine, report cuda.is_available() ==
+# True, then fail on the first kernel with "no kernel image is available for
+# execution on the device".
 #
 #   pip install -r requirements-gpu.txt
 #   pip install -r requirements.txt
+#
+# --index-url, NOT --extra-index-url. With an extra index pip takes the
+# highest version number from EITHER index, so whenever PyPI has a newer
+# torch than the CUDA index, you silently get PyPI's CPU-only wheel (seen:
+# 2.14.1+cpu chosen over 2.11.0+cu128). This file installs only torch and
+# torchvision, and the PyTorch index carries their dependencies too.
 #
 # Silent-failure warning: if you end up on a CPU build by accident, nothing
 # errors. get_device() prints "CPU" and a 512px EfficientNet-B3 epoch that
@@ -37,6 +44,6 @@
 #
 #   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 
---extra-index-url https://download.pytorch.org/whl/cu128
-torch>=2.7,<3.0
-torchvision>=0.22,<1.0
+--index-url https://download.pytorch.org/whl/cu130
+torch>=2.9,<3.0
+torchvision>=0.24,<1.0

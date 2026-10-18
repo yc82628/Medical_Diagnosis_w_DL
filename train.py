@@ -17,6 +17,27 @@ from metrics import (threshold_at_sensitivity, screening_metrics,
 from splits import enforce_monotonic, grades_from_cumulative
 
 
+def one_cycle_pct_start(total_steps: int, warmup_epochs: float,
+                        num_epochs: int) -> float | None:
+    """
+    pct_start for OneCycleLR that cannot divide by zero, or None for "too few
+    steps to schedule".
+
+    OneCycleLR's warm-up phase ends at step pct_start*total_steps - 1 and its
+    annealing phase at total_steps - 1; it divides by each phase's length. So
+    it raises ZeroDivisionError mid-training when the warm-up covers all of
+    training (warmup_epochs >= num_epochs, e.g. a 2-epoch smoke run) or comes
+    to exactly one step. Round the warm-up to whole steps, at least 2, and
+    leave at least 2 steps to anneal.
+    """
+    if total_steps < 4:
+        return None
+    frac = warmup_epochs / max(num_epochs, 1)
+    warm = int(round(total_steps * frac))
+    warm = min(max(warm, 2), total_steps - 2)
+    return warm / total_steps
+
+
 # Epoch loops
 def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
                     accum_steps=1, scheduler=None):
@@ -106,12 +127,18 @@ def main(cfg: Config = CONFIG):
         param_groups(model, tc.learning_rate, tc.backbone_lr_mult, tc.weight_decay)
     )
     steps_per_epoch = max(1, len(loaders["train"]) // tc.grad_accum_steps)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=[g["lr"] for g in optimizer.param_groups],
-        total_steps=steps_per_epoch * tc.num_epochs,
-        pct_start=tc.warmup_epochs / max(tc.num_epochs, 1),
-    )
+    total_steps = steps_per_epoch * tc.num_epochs
+    pct = one_cycle_pct_start(total_steps, tc.warmup_epochs, tc.num_epochs)
+    scheduler = None
+    if pct is not None:
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=[g["lr"] for g in optimizer.param_groups],
+            total_steps=total_steps, pct_start=pct,
+        )
+    else:
+        print(f"  Only {total_steps} optimiser steps in total: too few for a "
+              f"warm-up schedule, training at a constant learning rate.")
     use_amp = tc.amp and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
