@@ -28,3 +28,13 @@ secrets/
 
 # Deployment secrets for docker compose (DR_DATA_KEY). Never commit.
 .env
+
+# Real retinal datasets (APTOS, EyePACS, Messidor-2, EyeQ). Their licences
+# do not allow redistribution, and this repository is public.
+aptos/
+eyepacs/
+messidor*/
+Messidor*/
+EyeQ/
+eyeq/
+*.zip
