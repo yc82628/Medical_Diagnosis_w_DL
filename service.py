@@ -557,7 +557,11 @@ if __name__ == "__main__":
         print("\n  No accounts exist yet. Create the first one in another terminal:")
         print("      python auth.py create-user --username <name> --role admin\n")
 
-    print(f"  Open http{'s' if tls else ''}://{args.host}:{args.port}")
+    if args.host in ("0.0.0.0", "::"):
+        print(f"  Listening on all interfaces, port {args.port}. Open it through "
+              f"the hospital's reverse proxy address, not this one.")
+    else:
+        print(f"  Open http{'s' if tls else ''}://{args.host}:{args.port}")
     print("=" * 66)
     uvicorn.run(application, host=args.host, port=args.port, log_level="warning",
                 ssl_certfile=args.ssl_certfile, ssl_keyfile=args.ssl_keyfile)
