@@ -11,6 +11,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 from config import Config, CONFIG, PreprocessConfig, NUM_GRADES
+from preprocessing import cache_name
 from splits import load_labels, split_by_patient, ordinal_targets
 
 
@@ -63,7 +64,7 @@ class FundusDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        path = self.cache_dir / (Path(row["filename"]).stem + ".png")
+        path = self.cache_dir / cache_name(row["filename"])
         img = cv2.imread(str(path), cv2.IMREAD_COLOR)
         if img is None:
             raise FileNotFoundError(f"Cached image unreadable: {path}")

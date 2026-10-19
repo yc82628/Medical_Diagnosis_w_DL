@@ -414,19 +414,37 @@ def assess_quality(img_bgr: np.ndarray, thresholds: dict | None = None) -> dict:
 # Offline cache builder
 # ---------------------------------------------------------------------------
  
+def cache_name(filename: str) -> str:
+    """
+    Cache file for a CSV filename. The ONE place this mapping is defined.
+
+    A flat name keeps its stem ("abc.png" -> "abc.png"), so caches built before
+    this function existed stay valid. A name with folders keeps them, joined
+    by "__" ("a/IDRiD_001.jpg" -> "a__IDRiD_001.png"): using the bare stem
+    would make two different images with the same name in different folders
+    share one cache file, and one would silently be read under the other's
+    grade (IDRiD's two partitions both number their images from IDRiD_001).
+    """
+    p = Path(str(filename).replace("\\", "/"))
+    return "__".join(p.with_suffix("").parts) + ".png"
+
+
 def _process_one(args):
-    src, dst, cfg = args
+    name, src, dst, cfg = args
     try:
         img = cv2.imread(str(src), cv2.IMREAD_COLOR)
         if img is None:
-            return src.name, None, "unreadable"
+            return name, None, "unreadable"
         q = assess_quality(img)
         out = preprocess_image(img, cfg)
         dst.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(dst), out, [cv2.IMWRITE_PNG_COMPRESSION, 1])
-        return src.name, q, None
+        # The CSV filename, not src.name: the label loader matches the quality
+        # report on this column, and a bare basename never matches a CSV entry
+        # that includes folders -- ungradable images would silently stay in.
+        return name, q, None
     except Exception as e:                              # noqa: BLE001
-        return src.name, None, f"{type(e).__name__}: {e}"
+        return name, None, f"{type(e).__name__}: {e}"
  
  
 def build_cache(csv_path, images_dir, cache_dir, filename_col,
@@ -464,27 +482,37 @@ def build_cache(csv_path, images_dir, cache_dir, filename_col,
             f"\n    --filename-col {list(df.columns)[0]}"
         )
  
+    names = df[filename_col].astype(str)
+    keys = names.map(cache_name)
+    clash = keys[keys.duplicated(keep=False)]
+    if not clash.empty:
+        examples = names[clash.index].tolist()[:6]
+        raise SystemExit(
+            f"\n{clash.nunique()} cache file name(s) would be shared by different CSV "
+            f"rows, e.g. {examples}.\nThe same file listed twice? Deduplicate the CSV."
+        )
+
     cache_dir.mkdir(parents=True, exist_ok=True)
- 
+
     jobs = []
-    for name in df[filename_col].astype(str):
+    for name, key in zip(names, keys):
         src = images_dir / name
-        dst = cache_dir / (Path(name).stem + ".png")
+        dst = cache_dir / key
         if dst.exists():
             continue
-        jobs.append((src, dst, cfg))
+        jobs.append((name, src, dst, cfg))
  
     # Catch the "images are there but named differently" case before spending
     # minutes preprocessing nothing. APTOS is the classic example: its CSV
     # stores id_code without a file extension.
     if jobs:
-        missing = [j for j in jobs[:20] if not j[0].exists()]
+        missing = [j for j in jobs[:20] if not j[1].exists()]
         if len(missing) == min(20, len(jobs)):
             on_disk = [p.name for p in list(images_dir.iterdir())[:3]]
             raise SystemExit(
                 f"\nNone of the first {min(20, len(jobs))} files named in the CSV exist "
                 f"in {images_dir}.\n"
-                f"  CSV expects : {missing[0][0].name}\n"
+                f"  CSV expects : {missing[0][1].name}\n"
                 f"  Folder has  : {on_disk}\n"
                 f"\nUsually a missing/extra file extension. If the CSV lists names "
                 f"without\nan extension (APTOS does this), add it to the CSV, or "
@@ -511,8 +539,15 @@ def build_cache(csv_path, images_dir, cache_dir, filename_col,
                     print(f"  {i}/{len(jobs)}")
  
     qdf = pd.DataFrame(records)
+    report = cache_dir / "quality_report.csv"
+    if not qdf.empty and report.exists():
+        # Incremental run: merge, so images processed earlier keep their rows.
+        # Overwriting would drop them, and their ungradable flags with them.
+        prev = pd.read_csv(report)
+        qdf = (pd.concat([prev, qdf], ignore_index=True)
+                 .drop_duplicates(subset="filename", keep="last")
+                 .reset_index(drop=True))
     if not qdf.empty:
-        report = cache_dir / "quality_report.csv"
         qdf.to_csv(report, index=False)
         n_bad = int((~qdf["gradable"].fillna(False)).sum()) if "gradable" in qdf else 0
         print(f"\nQuality report -> {report}")
