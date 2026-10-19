@@ -82,16 +82,46 @@ of them on both sides of the split**.
 
 ## Datasets
 
-| Dataset | Size | Role |
-|---|---|---|
-| APTOS 2019 | ~3.6k | prototyping; one image per patient |
-| EyePACS / Kaggle DR | ~88k | scale; `patient_left/right` filenames |
-| Messidor-2 | ~1.7k | **external test set** — different source, do not merge |
+The current model is trained on **DeepDRiD** and validated externally on
+**IDRiD**. Both are open, need no account, and allow commercial use with
+attribution — unlike the Kaggle sets, whose rules restrict them.
 
-Set `DataConfig.external_csv_path` to Messidor-2 and `external_cache_dir` to its
-own preprocessed cache (`DR_EXTERNAL_CSV`, `DR_EXTERNAL_IMAGES`, `DR_EXTERNAL_CACHE`
-in `dr.env`). Until you do, every number is
-internal and provisional.
+| Dataset | Size | Role | Licence | Prepare with |
+|---|---|---|---|---|
+| [DeepDRiD](https://github.com/deepdrdoc/DeepDRiD) | 2,000 images, 500 patients | **training** / validation / internal test; human image-quality labels | CC BY-SA 4.0 | `prepare_deepdrid.py` |
+| [IDRiD](https://zenodo.org/records/17219542) | 516 images | **external test** — India, different cameras | CC BY 4.0 | `prepare_idrid.py` |
+| APTOS 2019 | ~3.6k | prototyping | Kaggle rules: **non-commercial only** | `prepare_aptos.py` |
+| EyePACS / Kaggle DR | ~88k | scale | Kaggle rules | — |
+| Messidor-2 | ~1.7k | external test | licence agreement | — |
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/deepdrdoc/DeepDRiD.git deepdrid/repo
+git -C deepdrid/repo sparse-checkout set regular_fundus_images
+# IDRiD: download "B. Disease Grading.zip" from the Zenodo record into idrid/ and extract
+python prepare_idrid.py
+python prepare_deepdrid.py         # writes dr.env: DeepDRiD for training, IDRiD external
+python preprocessing.py --csv deepdrid/labels.csv --images deepdrid/repo/regular_fundus_images --cache deepdrid/cache_512 --filename-col filename
+python preprocessing.py --csv idrid/labels.csv --images "idrid/B. Disease Grading" --cache idrid/cache_512 --filename-col filename
+python train.py && python calibrate.py && python model_card.py
+```
+
+Cite both datasets in anything you publish: Liu et al., *Patterns* 3(6), 2022
+(DeepDRiD); Porwal et al., IEEE DataPort, 2018 (IDRiD). The dataset folders
+are gitignored.
+
+### Current results
+
+From `MODEL_CARD.md` (EfficientNet-B3, 512 px, trained on an RTX 5070 laptop GPU):
+
+| | Internal test (DeepDRiD) | External test (IDRiD) |
+|---|---|---|
+| AUROC | 0.946 (0.910–0.973) | 0.875 (0.842–0.903) |
+| Sensitivity / specificity | 0.902 / 0.906 | 0.752 / 0.854 |
+| Calibration error | 0.033 | 0.148 |
+
+The model **does not pass the acceptance gate**: at the new site it misses one
+referable eye in four, and its probabilities are miscalibrated. Internal
+numbers alone would have looked deployable. That gap is the main finding.
 
 ## Module map
 
@@ -276,13 +306,17 @@ monitoring, Grad-CAM border warning, quality-gate validator, Docker packaging.
 
 Still needed, none of which code alone can supply:
 
-- **A trained model.** The current checkpoint is 3 epochs on synthetic data
-  and fails every acceptance criterion. Train on APTOS + EyePACS on a GPU.
-- **External validation** on Messidor-2 and, before any pilot, on images from
-  the partner hospital's own cameras. Then set
-  `AcceptanceConfig.require_external_validation = True`.
-- **Quality-gate validation** against human labels:
-  `python validate_quality_gate.py` on EyeQ. Retune the thresholds from it.
+- **A model that generalises.** Trained on DeepDRiD it passes every internal
+  criterion but fails external sensitivity (0.75) and calibration on IDRiD.
+  Next: train on more sources together (DeepDRiD + IDRiD's own split, or
+  licensed hospital data), stronger colour/illumination augmentation, and
+  a site-calibration step on held-out local data before any pilot.
+- **External validation on the partner hospital's own cameras** before any
+  pilot. Then set `AcceptanceConfig.require_external_validation = True`.
+- **A learned image-quality model.** On DeepDRiD's human quality labels the
+  classical gate is at chance (sharpness AUROC 0.51), so its blur threshold
+  was lowered from 40 to 12 to remove gross failures only. Train a quality
+  classifier on those 2,000 labels to replace it.
 - **Maculopathy.** Many programmes refer for exudates near the fovea; this
   model does not assess it (see `INTENDED_USE.md`).
 - **Learned OOD detector** to replace the heuristic anatomy gate (needs a

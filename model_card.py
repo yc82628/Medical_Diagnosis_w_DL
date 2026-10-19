@@ -15,6 +15,87 @@ def _fmt(v, nd=3):
     return "—" if v is None else f"{v:.{nd}f}"
  
  
+# Known datasets, matched against the CSV paths in the config. Licence and
+# citation are what the card must carry when a model is trained or evaluated
+# on them; "notes" are caveats that change how the numbers should be read.
+DATASETS = {
+    "deepdrid": {
+        "name": "DeepDRiD (ISBI 2020), regular fundus images",
+        "source": "https://github.com/deepdrdoc/DeepDRiD",
+        "licence": "CC BY-SA 4.0 (share-alike: whether a trained model must be shared "
+                   "under the same licence is legally unsettled; take advice before "
+                   "commercial use)",
+        "cite": "Liu R. et al. DeepDRiD: Diabetic Retinopathy -- Grading and Image "
+                "Quality Estimation Challenge. Patterns 3(6), 2022.",
+        "notes": ["Sites in China (Nicheng, Shanghai, national programme); 2 images per "
+                  "eye, patient ids available, so the split and bootstrap are "
+                  "patient-level.",
+                  "Graders rated about half the images not diagnosable; graded ones were "
+                  "kept, as in the challenge."],
+    },
+    "idrid": {
+        "name": "IDRiD, disease grading",
+        "source": "https://zenodo.org/records/17219542 (original: IEEE DataPort, "
+                  "doi:10.21227/H25W98)",
+        "licence": "CC BY 4.0",
+        "cite": "Porwal P. et al. Indian Diabetic Retinopathy Image Dataset (IDRiD). "
+                "IEEE DataPort, 2018.",
+        "notes": ["Single clinic in India, different cameras from DeepDRiD.",
+                  "No patient ids: each image is treated as its own patient, so if some "
+                  "patients contributed both eyes the confidence intervals are somewhat "
+                  "too narrow.",
+                  "Referable prevalence ~63%, far above a screening population (8-25%), "
+                  "so PPV/NPV here do not transfer; sensitivity and specificity do."],
+    },
+    "aptos": {
+        "name": "APTOS 2019 Blindness Detection",
+        "source": "https://www.kaggle.com/competitions/aptos2019-blindness-detection",
+        "licence": "Kaggle competition rules: NON-COMMERCIAL use only, no redistribution",
+        "cite": "APTOS 2019 Blindness Detection, Kaggle.",
+        "notes": [],
+    },
+    "demo_data": {
+        "name": "Synthetic demo data (make_demo_data.py)",
+        "source": "generated locally", "licence": "n/a", "cite": "",
+        "notes": ["Synthetic. Numbers measured on it mean nothing clinically."],
+    },
+}
+
+
+def _dataset_for(csv_path):
+    if not csv_path:
+        return None
+    low = str(csv_path).lower().replace("\\", "/")
+    for key, meta in DATASETS.items():
+        if key in low:
+            return meta
+    return {"name": str(csv_path), "source": "unknown", "licence": "unknown -- check "
+            "before use", "cite": "", "notes": []}
+
+
+def _grade34_share(csv_path, grade_col):
+    """Share of ICDR 3-4 in the training labels, or None if unavailable."""
+    try:
+        import pandas as pd
+        g = pd.read_csv(csv_path)[grade_col]
+        return float((g >= 3).mean())
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def _gate(d):
+    """(failures, checked) from the same acceptance gate the service applies."""
+    try:
+        from config import CONFIG
+        from predictor import acceptance_failures, file_sha256
+        ck = Path(CONFIG.train.save_path)
+        sha = file_sha256(ck) if ck.exists() else ""
+        return acceptance_failures(d, sha, d.get("preprocess_fingerprint"),
+                                   CONFIG.acceptance), True
+    except Exception as e:                              # noqa: BLE001
+        return [f"could not run the gate: {e}"], False
+
+
 def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> str:
     p = Path(eval_path)
     if not p.exists():
@@ -107,7 +188,19 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
             f"{_fmt(external.get('sensitivity'))} |",
             f"| Specificity | {_fmt(internal.get('specificity'))} | "
             f"{_fmt(external.get('specificity'))} |",
+            f"| PPV / NPV | {_fmt(internal.get('ppv'))} / {_fmt(internal.get('npv'))} | "
+            f"{_fmt(external.get('ppv'))} / {_fmt(external.get('npv'))} |",
+            f"| Expected calibration error | {_fmt(internal.get('ece'), 4)} | "
+            f"{_fmt(external.get('ece'), 4)} |",
+            f"| Quadratic weighted kappa | {_fmt(internal.get('qwk'))} | "
+            f"{_fmt(external.get('qwk'))} |",
+            f"| Cases / referable prevalence | {internal.get('n','—')} / "
+            f"{_fmt(internal.get('prevalence'))} | {external.get('n','—')} / "
+            f"{_fmt(external.get('prevalence'))} |",
             f"| Missed referable | {internal.get('fn','—')} | {external.get('fn','—')} |",
+            "",
+            "Same frozen operating point and calibration on both: nothing was refitted "
+            "on the external set.",
             "",
         ]
         a = (internal.get("auroc_ci") or {}).get("point")
@@ -132,6 +225,62 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
             "until external validation is run.**",
             "",
         ]
+
+    # ---- acceptance gate ---------------------------------------------------
+    fails, checked = _gate(d)
+    L += ["## Acceptance gate", ""]
+    if checked and not fails:
+        L += ["**PASSED** every criterion in `config.AcceptanceConfig`. The service "
+              "will load this model.", ""]
+    else:
+        L += ["**NOT PASSED.** The service will not load this model; it runs in "
+              "labelled DEMO mode instead. Failed criteria:", ""]
+        L += [f"- {f}" for f in fails]
+        L += ["", "These are floors that catch an unready model, not a clinical claim. "
+              "Do not lower them to make a model pass.", ""]
+
+    # ---- data --------------------------------------------------------------
+    try:
+        from config import CONFIG
+        dc = CONFIG.data
+        sets = [("Training / validation / internal test", dc.csv_path)]
+        if dc.external_csv_path:
+            sets.append(("External test", dc.external_csv_path))
+    except Exception:                                   # noqa: BLE001
+        sets = []
+    if sets:
+        L += ["## Data", "", "| Role | Dataset | Licence |", "|---|---|---|"]
+        metas = [(role, _dataset_for(path)) for role, path in sets]
+        for role, meta in metas:
+            L.append(f"| {role} | {meta['name']} ({meta['source']}) | {meta['licence']} |")
+        L.append("")
+        for role, meta in metas:
+            if meta["cite"]:
+                L.append(f"- **Cite ({role.lower()}):** {meta['cite']}")
+            L += [f"- {n}" for n in meta["notes"]]
+        L.append("")
+
+    # ---- quality gate validation ------------------------------------------
+    qv = Path("artifacts/quality_gate_validation.json")
+    if qv.exists():
+        q = json.loads(qv.read_text())
+        L += ["## Image-quality gate", "",
+              f"Measured against human gradability labels on {q.get('n_images')} images "
+              f"(`validate_quality_gate.py`):", "",
+              "| | |", "|---|---|",
+              f"| Human-rejected images the gate also rejects (catch rate) | "
+              f"{_fmt(q.get('catch_rate'))} |",
+              f"| Human-accepted images the gate rejects (false rejects) | "
+              f"{_fmt(q.get('false_reject_rate'))} |",
+              f"| Blur threshold in force when measured | "
+              f"{(q.get('thresholds') or {}).get('min_blur_var', '—')} |", "",
+              "The classical gate (sharpness, field of view, exposure) barely separates "
+              "human-accepted from human-rejected images on real data, so it is set to "
+              "remove gross failures only. It is a backstop, not a gradability "
+              "assessment: safety rests on the abstention band and on human review of "
+              "every output. A learned quality model trained on these labels is the "
+              "intended replacement.", ""]
+
  
     # ---- abstention --------------------------------------------------------
     ab = d.get("abstention") or []
@@ -179,6 +328,20 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
               "disparities in retinal and dermatological imaging models make this a "
               "material gap, not a formality.", ""]
  
+    def _severe_line():
+        try:
+            from config import CONFIG
+            share = _grade34_share(CONFIG.data.csv_path, CONFIG.data.grade_col)
+        except Exception:                               # noqa: BLE001
+            share = None
+        if share is None:
+            return ("- **Severe grades.** ICDR 3 and 4 are rare in screening "
+                    "populations, so estimates at the severe end have wide intervals.")
+        return (f"- **Grade mix.** ICDR 3-4 make up {share:.0%} of the training labels "
+                f"-- far more than in a screening population, where they are often "
+                f"under 3%. Performance on a real screening mix must be measured, "
+                f"not assumed.")
+
     # ---- limitations -------------------------------------------------------
     L += [
         "## Limitations",
@@ -186,14 +349,17 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
         "- **Label ceiling.** Performance cannot exceed the quality of the reference "
         "grades. Human inter-grader agreement on ICDR is typically κ 0.6–0.8, which "
         "bounds any achievable metric.",
-        "- **Rare severe grades.** ICDR 3 and 4 are often under 3% combined, so "
-        "estimates at the severe end have wide intervals regardless of dataset size.",
+        _severe_line(),
         "- **Ungradable images.** Routed to human review, never scored as negative. "
         "In real programmes 5–20% of captures are ungradable.",
         "- **Saliency maps are debugging tools, not explanations.** Any saliency "
         "shown in an interface must be labelled as such.",
-        "- **Single-image decisions.** No use of prior images, patient history, or "
-        "the fellow eye, all of which a human grader uses.",
+        "- **Single-image model.** The model scores each image alone, without prior "
+        "images or patient history. The platform combines both eyes into a visit "
+        "decision (refer if either eye is referable), but the model never sees the "
+        "fellow eye.",
+        "- **No maculopathy.** Diabetic macular oedema is not assessed, although many "
+        "screening programmes refer on it.",
         "",
         "## Provenance",
         "",

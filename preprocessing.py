@@ -344,7 +344,15 @@ def verify_is_fundus(img_bgr: np.ndarray) -> dict:
  
 QUALITY_THRESHOLDS = {
     "min_fov_fraction": 0.25,   # retina should fill a reasonable share of frame
-    "min_blur_var": 40.0,       # variance of Laplacian, at QUALITY_WORK_SIZE
+    # Variance of Laplacian, at QUALITY_WORK_SIZE. Was 40, tuned on synthetic
+    # images (median ~295). Measured on DeepDRiD's 2,000 human quality labels
+    # (validate_quality_gate.py): real images have median ~40, so 40 rejected
+    # half of them -- and at random, since this metric does not separate
+    # human-accepted from human-rejected images (AUROC 0.51). 12 is the 1st
+    # percentile of human-ACCEPTED images: it removes gross blur only (<1%
+    # false rejects) and catches ~4% of human rejects. A learned quality model
+    # trained on those labels is the real fix.
+    "min_blur_var": 12.0,
     "min_mean_intensity": 20.0,
     "max_mean_intensity": 235.0,
 }
