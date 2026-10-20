@@ -32,3 +32,28 @@ def test_known_datasets_carry_licence_and_citation():
     assert "CC BY 4.0" in model_card._dataset_for(r"idrid\labels.csv")["licence"]
     assert "NON-COMMERCIAL" in model_card._dataset_for("aptos/labels_clean.csv")["licence"]
     assert "unknown" in model_card._dataset_for("other/labels.csv")["licence"]
+
+
+def test_quality_section_compares_learned_and_classical(tmp_path):
+    ci = {"point": 0.6, "lo": 0.5, "hi": 0.7, "n_boot": 10}
+    me = tmp_path / "quality_model_eval.json"
+    me.write_text(json.dumps({
+        "backbone": "resnet18", "image_size": 448, "labels": "deepdrid/quality_labels.csv",
+        "threshold": 0.7, "max_false_reject_target": 0.05, "checkpoint_sha256": "abc",
+        "split": {"train": {"patients": 300}, "val": {"patients": 100},
+                  "test": {"patients": 100}},
+        "test": {"n": 400, "n_human_reject": 214, "catch_rate": 0.6,
+                 "auroc_ci": {"point": 0.85, "lo": 0.8, "hi": 0.9},
+                 "catch_rate_ci": ci, "false_reject_rate_ci": ci},
+        "classical_test": {"auroc_blur_var": 0.51, "catch_rate": 0.05,
+                           "false_reject_rate": 0.025}}))
+    ck = tmp_path / "quality_model.pt"
+    ck.write_bytes(b"other weights")
+    text = "\n".join(model_card._quality_section(str(me), str(tmp_path / "none.json"),
+                                                 checkpoint=str(ck)))
+    assert "| AUROC (human reject = positive) | 0.850 (95% CI 0.800–0.900) | 0.510" in text
+    assert "| Human-rejected images caught | 60.0% (50.0–70.0) | 5.0% |" in text
+    assert "40.0% of human-rejected test images still reach" in text
+    assert "**Stale:**" in text
+    assert model_card._quality_section(str(tmp_path / "x.json"),
+                                       str(tmp_path / "y.json")) == []

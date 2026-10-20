@@ -96,6 +96,88 @@ def _gate(d):
         return [f"could not run the gate: {e}"], False
 
 
+def _pct(v):
+    return "—" if v is None else f"{100 * v:.1f}%"
+
+
+def _ci_pct(d):
+    if not d or d.get("point") is None:
+        return "—"
+    return f"{100 * d['point']:.1f}% ({100 * d['lo']:.1f}–{100 * d['hi']:.1f})"
+
+
+def _quality_section(model_eval="artifacts/quality_model_eval.json",
+                     classical_eval="artifacts/quality_gate_validation.json",
+                     checkpoint=None) -> list[str]:
+    """The image-quality gate: learned model vs classical checks, as measured."""
+    from quality_model import QUALITY_CHECKPOINT
+
+    me, ce = Path(model_eval), Path(classical_eval)
+    q = json.loads(ce.read_text()) if ce.exists() else None
+    if q and q.get("quality_source", "classical") != "classical":
+        q = None                    # that file measured the learned gate, not this row
+    if not me.exists() and not q:
+        return []
+    L = ["## Image-quality gate", ""]
+
+    if me.exists():
+        m = json.loads(me.read_text())
+        t, c, s = m.get("test") or {}, m.get("classical_test") or {}, m.get("split") or {}
+        ts = s.get("test") or {}
+        L += [f"A learned quality model ({m.get('backbone')}, {m.get('image_size')} px, "
+              f"`quality_model.py`) decides gradability, trained on human quality "
+              f"ratings (`{m.get('labels')}`). Patients were split "
+              f"{(s.get('train') or {}).get('patients', '—')} train / "
+              f"{(s.get('val') or {}).get('patients', '—')} validation / "
+              f"{ts.get('patients', '—')} test; no patient is in more than one.", "",
+              f"Its threshold (P(ungradable) ≥ **{_fmt(m.get('threshold'), 3)}**) was "
+              f"chosen on validation so that at most "
+              f"{_pct(m.get('max_false_reject_target'))} of human-accepted images are "
+              f"rejected, then frozen. Held-out test, {t.get('n', '—')} images from "
+              f"{ts.get('patients', '—')} patients ({t.get('n_human_reject', '—')} "
+              f"human-rejected):", "",
+              "| | Learned model | Classical checks |", "|---|---|---|",
+              f"| AUROC (human reject = positive) | {_ci(t.get('auroc_ci'))} | "
+              f"{_fmt(c.get('auroc_blur_var'))} (sharpness) |",
+              f"| Human-rejected images caught | {_ci_pct(t.get('catch_rate_ci'))} | "
+              f"{_pct(c.get('catch_rate'))} |",
+              f"| Human-accepted images rejected | "
+              f"{_ci_pct(t.get('false_reject_rate_ci'))} | "
+              f"{_pct(c.get('false_reject_rate'))} |", "",
+              "Intervals bootstrap patients. The classical checks (field of view, gross "
+              "blur, exposure) still run as a backstop: the learned model can reject an "
+              "image they pass, never pass one they reject.", ""]
+        ck = Path(checkpoint or QUALITY_CHECKPOINT)
+        if ck.exists():
+            from predictor import file_sha256
+            if file_sha256(ck) != m.get("checkpoint_sha256"):
+                L += [f"> **Stale:** `{ck}` is not the checkpoint these numbers were "
+                      f"measured on. Re-run `quality_model.py`.", ""]
+        missed = None if t.get("catch_rate") is None else 1 - t["catch_rate"]
+        L += [f"{_pct(missed)} of human-rejected test images still reach the DR model "
+              "at this false-reject budget. The gate lowers that number; it does not remove "
+              "the need for the abstention band and for human review of every "
+              "output. Trained and tested on one source (DeepDRiD); not yet measured "
+              "on other cameras.", ""]
+    else:
+        L += ["No learned quality model: the classical checks decide gradability on "
+              "their own.", ""]
+
+    if q:
+        L += [f"Classical checks alone, against human gradability labels on "
+              f"{q.get('n_images')} images (`validate_quality_gate.py --gate classical`):",
+              "", "| | |", "|---|---|",
+              f"| Human-rejected images the gate also rejects (catch rate) | "
+              f"{_fmt(q.get('catch_rate'))} |",
+              f"| Human-accepted images the gate rejects (false rejects) | "
+              f"{_fmt(q.get('false_reject_rate'))} |",
+              f"| Blur threshold in force when measured | "
+              f"{(q.get('thresholds') or {}).get('min_blur_var', '—')} |", "",
+              "They barely separate human-accepted from human-rejected images, so they "
+              "are set to remove gross failures only.", ""]
+    return L
+
+
 def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> str:
     p = Path(eval_path)
     if not p.exists():
@@ -261,25 +343,7 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
         L.append("")
 
     # ---- quality gate validation ------------------------------------------
-    qv = Path("artifacts/quality_gate_validation.json")
-    if qv.exists():
-        q = json.loads(qv.read_text())
-        L += ["## Image-quality gate", "",
-              f"Measured against human gradability labels on {q.get('n_images')} images "
-              f"(`validate_quality_gate.py`):", "",
-              "| | |", "|---|---|",
-              f"| Human-rejected images the gate also rejects (catch rate) | "
-              f"{_fmt(q.get('catch_rate'))} |",
-              f"| Human-accepted images the gate rejects (false rejects) | "
-              f"{_fmt(q.get('false_reject_rate'))} |",
-              f"| Blur threshold in force when measured | "
-              f"{(q.get('thresholds') or {}).get('min_blur_var', '—')} |", "",
-              "The classical gate (sharpness, field of view, exposure) barely separates "
-              "human-accepted from human-rejected images on real data, so it is set to "
-              "remove gross failures only. It is a backstop, not a gradability "
-              "assessment: safety rests on the abstention band and on human review of "
-              "every output. A learned quality model trained on these labels is the "
-              "intended replacement.", ""]
+    L += _quality_section()
 
  
     # ---- abstention --------------------------------------------------------

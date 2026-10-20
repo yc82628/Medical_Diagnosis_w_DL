@@ -47,13 +47,38 @@ class Prediction:
  
 # ---------------------------------------------------------------------------
  
-def run_gates(img_bgr: np.ndarray) -> dict:
+_DEFAULT_GATE = object()
+
+
+def run_gates(img_bgr: np.ndarray, quality_gate=_DEFAULT_GATE) -> dict:
     """
     Quality gate + anatomy gate, exactly as the serving path applies them.
     Shared with validate_quality_gate.py so the validator measures the real
     gate, not a re-implementation of it.
+
+    `quality_gate` decides gradability: by default the learned quality model
+    (quality_model.default_quality_gate) when its checkpoint exists. Pass None
+    for the classical checks alone, or any object with assess(img) -> dict
+    (gradable, p_ungradable, threshold, model, reasons). The classical checks
+    always run as a backstop: the learned model can reject an image they pass,
+    never pass one they reject.
     """
     quality = assess_quality(img_bgr)
+
+    if quality_gate is _DEFAULT_GATE:
+        from quality_model import default_quality_gate
+        quality_gate = default_quality_gate()
+    if quality_gate is None:
+        quality["quality_source"] = "classical"
+    else:
+        learned = quality_gate.assess(img_bgr)
+        quality["quality_source"] = "learned"
+        quality["p_ungradable"] = float(learned["p_ungradable"])
+        quality["quality_threshold"] = float(learned["threshold"])
+        quality["quality_model"] = learned.get("model")
+        if not learned["gradable"]:
+            quality["gradable"] = False
+            quality["reasons"] = list(quality["reasons"]) + list(learned["reasons"])
 
     # Anatomy gate. Something that is not a retina (a document, a wall, an
     # X-ray) must never reach the model: it would return a confident number

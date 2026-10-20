@@ -48,6 +48,7 @@ import encounters
 import fhir
 from dicom_io import DicomError, is_dicom, read_dicom
 from predictor import build_predictor
+from quality_model import default_quality_gate, default_quality_note
 from storage import ImageStore
 
 APP_DIR = Path(__file__).parent
@@ -125,6 +126,13 @@ def _json_safe(o):
     return o
 
 
+def _quality_gate_info() -> dict:
+    g = default_quality_gate()
+    if g is None:
+        return {"source": "classical"}
+    return {"source": "learned", "model": g.version, "threshold": g.threshold}
+
+
 def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
                evaluation_path="artifacts/evaluation.json",
                data_key: bytes | None = None, predictor=None,
@@ -137,6 +145,9 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
     """
     if predictor is None:
         predictor, load_note = build_predictor()
+        # Load the quality model now, not on the first upload: a corrupt
+        # checkpoint should stop startup, and the note says which gate runs.
+        load_note = f"{load_note} {default_quality_note()}"
     load_note = load_note or ""
     con = audit.connect(db_path)
     auth.init_schema(con)
@@ -261,6 +272,7 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
             "note": load_note,
             "model_version": predictor.model_version,
             "preprocess_fingerprint": predictor.pc.fingerprint(),
+            "quality_gate": _quality_gate_info(),
             "image_size": predictor.pc.image_size,
             "operating_point": predictor.operating_point,
             "abstain_low": predictor.abstain_low,

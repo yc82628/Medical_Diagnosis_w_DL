@@ -568,6 +568,8 @@ async function select(id){
           <table class="kv">
             <tr><td>Gradable</td><td style="color:${c.gradable?'var(--routine)':'var(--review)'}">${c.gradable?'Yes':'No'}</td></tr>
             <tr><td>Looks like a retina</td><td style="color:${q.is_fundus===false?'var(--review)':'inherit'}">${q.is_fundus==null?'—':(q.is_fundus?'Yes':'No')}</td></tr>
+            <tr><td>Quality decided by</td><td>${q.quality_source==='learned'?'Learned quality model':(q.quality_source==='classical'?'Classical checks':'—')}</td></tr>
+            ${q.p_ungradable!=null?`<tr><td>P(ungradable)</td><td>${q.p_ungradable.toFixed(2)} (threshold ${q.quality_threshold.toFixed(2)})</td></tr>`:''}
             <tr><td>Field of view</td><td>${q.fov_fraction!=null?q.fov_fraction.toFixed(2):'—'}</td></tr>
             <tr><td>Sharpness</td><td>${q.blur_var!=null?q.blur_var.toFixed(1):'—'}</td></tr>
             <tr><td>Mean intensity</td><td>${q.mean_intensity!=null?q.mean_intensity.toFixed(1):'—'}</td></tr>
