@@ -96,15 +96,15 @@ def test_build_predictor_reads_band_from_evaluation(tmp_path, monkeypatch):
     ab = abstention_curve(y, p, 0.5).to_dict(orient="records")
     ev = tmp_path / "evaluation.json"
     ev.write_text(json.dumps({"operating_point": 0.5, "calibration": None,
-                              "abstention": ab}))
+                              "abstention": ab, "tta": "d8"}))
     ck = tmp_path / "best_model.pt"
     ck.write_bytes(b"x")
 
     captured = {}
 
     class _FakeTorch(BasePredictor):
-        def __init__(self, path, op, cal, lo, hi):
-            captured.update(lo=lo, hi=hi)
+        def __init__(self, path, op, cal, lo, hi, tta="none"):
+            captured.update(lo=lo, hi=hi, tta=tta)
             super().__init__(PreprocessConfig(), op, lo, hi, "fake")
 
     monkeypatch.setattr(pr, "TorchPredictor", _FakeTorch)
@@ -112,4 +112,6 @@ def test_build_predictor_reads_band_from_evaluation(tmp_path, monkeypatch):
     # gate; the override isolates band wiring (the gate has its own tests).
     pred, note = build_predictor(str(ck), str(ev), allow_unvalidated=True)
     assert captured["lo"] is not None and captured["hi"] is not None
+    # Calibration was fitted on TTA-averaged logits; serving must average too.
+    assert captured["tta"] == "d8"
     assert "is active" in note

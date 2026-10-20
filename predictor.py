@@ -168,7 +168,7 @@ class TorchPredictor(BasePredictor):
     """Real model. Preprocessing comes from the checkpoint, not from config.py."""
  
     def __init__(self, checkpoint_path, operating_point=None, calibration=None,
-                 abstain_low=None, abstain_high=None, device=None):
+                 abstain_low=None, abstain_high=None, device=None, tta="none"):
         import torch
         from model import load_checkpoint
  
@@ -182,6 +182,9 @@ class TorchPredictor(BasePredictor):
         super().__init__(pc, op, abstain_low, abstain_high, version, is_demo=False)
  
         self.calibration = calibration or {"method": "identity", "temperature": 1.0}
+        # Calibration was fitted on logits averaged over these views
+        # (evaluation.json "tta"), so serving must average the same ones.
+        self.tta = tta or "none"
  
     def _apply_calibration(self, logit: float) -> float:
         m = self.calibration.get("method", "identity")
@@ -202,7 +205,8 @@ class TorchPredictor(BasePredictor):
         x = torch.from_numpy(rgb.transpose(2, 0, 1)).float().unsqueeze(0).to(self.device)
  
         with torch.no_grad():
-            logits = self.model(x).float().cpu().numpy()[0]
+            from model import tta_logits
+            logits = tta_logits(self.model, x, self.tta).cpu().numpy()[0]
  
         cum = 1 / (1 + np.exp(-np.clip(logits, -30, 30)))
         prob = self._apply_calibration(float(logits[REFERABLE_THRESHOLD - 1]))
@@ -418,14 +422,15 @@ def build_predictor(checkpoint_path="checkpoints/best_model.pt",
 
     ev = Path(evaluation_path)
     evaluation = json.loads(ev.read_text()) if ev.exists() else None
-    op, cal, lo, hi = None, None, None, None
+    op, cal, lo, hi, tta = None, None, None, None, "none"
     if evaluation is not None:
         op = evaluation.get("operating_point")
         cal = evaluation.get("calibration")
         lo, hi = _band_for(evaluation, target_coverage)
+        tta = evaluation.get("tta") or "none"
 
     try:
-        p = TorchPredictor(checkpoint_path, op, cal, lo, hi)
+        p = TorchPredictor(checkpoint_path, op, cal, lo, hi, tta=tta)
     except ImportError:
         return DemoPredictor(), (
             "PyTorch is not installed, so the trained checkpoint cannot be loaded. "

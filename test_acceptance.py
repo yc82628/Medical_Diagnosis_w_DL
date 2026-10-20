@@ -124,7 +124,7 @@ def test_external_validation_can_be_required():
 # build_predictor wiring
 
 class _FakeTorch(BasePredictor):
-    def __init__(self, path, op, cal, lo, hi):
+    def __init__(self, path, op, cal, lo, hi, tta="none"):
         super().__init__(PreprocessConfig(), op if op is not None else 0.5, lo, hi, "fake")
 
 

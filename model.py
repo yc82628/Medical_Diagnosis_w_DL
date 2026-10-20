@@ -18,6 +18,8 @@ _BACKBONES = {
     "efficientnet_b0":  (models.efficientnet_b0, models.EfficientNet_B0_Weights.DEFAULT),
     "efficientnet_b3":  (models.efficientnet_b3, models.EfficientNet_B3_Weights.DEFAULT),
     "convnext_tiny":    (models.convnext_tiny,   models.ConvNeXt_Tiny_Weights.DEFAULT),
+    "efficientnet_v2_s": (models.efficientnet_v2_s, models.EfficientNet_V2_S_Weights.DEFAULT),
+    "convnext_small":   (models.convnext_small,  models.ConvNeXt_Small_Weights.DEFAULT),
 }
 
 
@@ -100,6 +102,29 @@ class DRModel(nn.Module):
         can be temperature-scaled directly. Index 1 is the k=1 threshold.
         """
         return logits[:, 1]
+
+
+# Test-time augmentation
+# A fundus photograph has no canonical orientation (dataset.py trains with full
+# rotation and both flips), so the dihedral views are all valid inputs. Logits
+# are averaged; calibration is fitted on the averaged logit, so the serving
+# predictor must average the same views (evaluation.json records which).
+TTA_VIEWS = {
+    "none": ((False, 0),),
+    "flip4": ((False, 0), (True, 0), (False, 2), (True, 2)),
+    "d8": tuple((f, k) for f in (False, True) for k in range(4)),
+}
+
+
+def tta_logits(model: nn.Module, x: torch.Tensor, tta: str = "none") -> torch.Tensor:
+    """Mean cumulative logits over the TTA views of a B x C x H x W batch."""
+    if tta not in TTA_VIEWS:
+        raise ValueError(f"Unknown TTA {tta!r}. Options: {list(TTA_VIEWS)}")
+    out = 0
+    for flip, k in TTA_VIEWS[tta]:
+        v = torch.flip(x, dims=[3]) if flip else x
+        out = out + model(torch.rot90(v, k, dims=[2, 3]) if k else v).float()
+    return out / len(TTA_VIEWS[tta])
 
 
 # Loss
