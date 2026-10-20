@@ -477,3 +477,28 @@ def test_health_is_public_and_says_nothing(env):
     app, *_ = env
     r = TestClient(app).get("/api/health")
     assert r.status_code == 200 and r.json() == {"status": "ok"}
+
+
+def test_visit_worklist_groups_images_and_puts_pending_first(env):
+    app, *_ = env
+    g = client_for(app, "gus")
+    p = app.state.predictor
+    p.operating_point, p.abstain_low, p.abstain_high = 0.0, None, None   # always REFER
+    # Visit A: both eyes, then fully reviewed.  Visit B: one eye, unreviewed.
+    a = [upload(g, patient="PA", eye=e, encounter="VA").json()["case_id"]
+         for e in ("left", "right")]
+    upload(g, patient="PB", eye="left", encounter="VB")
+    for cid in a:
+        g.post(f"/api/cases/{cid}/verdict", json={"verdict": "ROUTINE"})
+    v = g.get("/api/visits").json()["visits"]
+    assert [x["encounter_id"] for x in v] == ["VB", "VA"]          # pending first
+    vb, va = v
+    assert vb["needs_review"] and vb["pending_images"] == 1 and vb["n_images"] == 1
+    assert vb["decision"] == "REFER"                               # model only
+    assert not va["needs_review"] and va["final"] and va["decision"] == "ROUTINE"
+    assert set(va["eyes"]) == {"left", "right"}
+
+
+def test_visit_worklist_requires_sign_in(env):
+    app, *_ = env
+    assert TestClient(app).get("/api/visits").status_code == 401
