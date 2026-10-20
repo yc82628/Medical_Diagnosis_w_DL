@@ -101,7 +101,7 @@ main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 108px)
 figure{margin:0}
 .imgwrap{position:relative;line-height:0}
 figure img{width:100%;border-radius:8px;border:1px solid var(--line);display:block;background:#000}
-.cam-layer{position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;border-color:transparent}
+.cam-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s;pointer-events:none;border-color:transparent}
 .cam-layer.on{opacity:1}
 .figbar{display:flex;align-items:center;gap:12px;margin-top:8px}
 .cambtn{background:var(--raise);color:var(--text);border:1px solid var(--line);
@@ -306,7 +306,9 @@ const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review',
 // <img src=x onerror=...> would run script in every grader's browser.
 const esc = v => v == null ? '' : String(v).replace(/[&<>"']/g,
   ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const pct = v => v == null ? '—' : (v*100).toFixed(0) + '%';
+// Never show 0% or 100%. Calibration fitted on a few hundred validation images
+// cannot justify certainty, and a clinician reads "100%" as "certain".
+const pct = v => v == null ? '—' : v >= 0.995 ? '>99%' : v <= 0.005 ? '<1%' : (v*100).toFixed(0) + '%';
 const clinical = () => ME && ME.role !== 'photographer';
 
 async function api(path, opts){
@@ -463,7 +465,7 @@ function axis(p){
         <div class="zone f" style="width:${100-R}%"></div>
       </div>
       <div class="opline" style="left:${op*100}%" data-l="operating point ${op.toFixed(2)}"></div>
-      ${has ? `<div class="marker" data-v="${(p*100).toFixed(0)}%" style="left:${p*100}%"></div>` : ''}
+      ${has ? `<div class="marker" data-v="${pct(p)}" style="left:${p*100}%"></div>` : ''}
     </div>
     <div class="axlabels"><span>0.0 &nbsp;no referable DR</span><span>referable DR&nbsp; 1.0</span></div>
     <div class="legend">
@@ -723,7 +725,11 @@ async function showMonitoring(){
 
 /* ---------- boot ---------- */
 async function boot(){
-  try { ME = await api('/api/me'); } catch { return; }
+  // First visit: no session yet, so show the sign-in box without the
+  // "session has ended" message api() uses for a mid-session expiry.
+  const r = await fetch('/api/me', {credentials:'same-origin'});
+  if (r.status === 401){ showLogin(''); return; }
+  try { ME = await r.json(); } catch { return; }
   await loadSystem();
   await refresh();
 }

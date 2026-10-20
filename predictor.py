@@ -74,6 +74,11 @@ def run_gates(img_bgr: np.ndarray) -> dict:
 
 # ---------------------------------------------------------------------------
 
+def _shown(p: float) -> str:
+    """Probability as shown to a clinician: never exactly 0 or 1 (see the UI)."""
+    return ">0.99" if p >= 0.995 else "<0.01" if p <= 0.005 else f"{p:.2f}"
+
+
 class BasePredictor:
     """Shared decision logic. Subclasses supply `_score(image) -> (logit, cum_probs)`."""
  
@@ -136,13 +141,13 @@ class BasePredictor:
         elif prob >= self.operating_point:
             decision = DECISION_REFER
             reasons.append(
-                f"Estimated probability of referable DR ({prob:.2f}) is at or above "
+                f"Estimated probability of referable DR ({_shown(prob)}) is at or above "
                 f"the operating point ({self.operating_point:.2f})."
             )
         else:
             decision = DECISION_ROUTINE
             reasons.append(
-                f"Estimated probability of referable DR ({prob:.2f}) is below the "
+                f"Estimated probability of referable DR ({_shown(prob)}) is below the "
                 f"operating point ({self.operating_point:.2f})."
             )
             reasons.append(
