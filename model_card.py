@@ -131,10 +131,31 @@ def _site_section(site: dict, external: dict) -> list[str]:
         "- IDRiD has no patient ids, so the split is by image: if one patient "
         "contributed both eyes, they may sit on opposite halves, which flatters the "
         "evaluation half slightly.",
-        "- Half of IDRiD is ~260 images: the evaluation-half sensitivity has a 95% "
-        "interval of roughly ±0.05.",
+        _sens_interval_line(external),
         "",
     ]
+
+
+def _wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    if n == 0:
+        return float("nan"), float("nan")
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * (p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5 / d
+    return c - h, c + h
+
+
+def _sens_interval_line(external: dict) -> str:
+    tp, fn = external.get("tp"), external.get("fn")
+    if tp is None or fn is None:
+        return "- The evaluation half is small, so its sensitivity is imprecise."
+    lo, hi = _wilson(int(tp), int(tp) + int(fn))
+    return (f"- The evaluation half is small: {int(tp) + int(fn)} referable images, so "
+            f"its sensitivity has a 95% interval of {lo:.3f}–{hi:.3f} (Wilson). The "
+            f"point estimate clears the gate; the interval does not rule out a true "
+            f"sensitivity below the 0.85 floor. Confirm on a larger sample from the "
+            f"deploying site before any use.")
 
 
 def _experiments_section(path="artifacts/experiments/results.jsonl") -> list[str]:
@@ -153,9 +174,13 @@ def _experiments_section(path="artifacts/experiments/results.jsonl") -> list[str
         "evaluation half. *src cal*: calibrator and threshold from DeepDRiD validation, "
         "applied unchanged. *site cal*: refitted on the site, estimated by 2-fold "
         "cross-fitting inside the calibration half (mean ± sd over 5 shuffles). Each "
-        "row is one training run; run-to-run noise is about ±0.01–0.02 AUROC.",
+        "configuration was trained once, with no replicate run, so differences of "
+        "about 0.02 AUROC or less should not be read as real.",
         "",
         *experiments_table(rows).splitlines(),
+        "",
+        "Configurations started or planned but not completed have no result and are "
+        "not in the table; `README.md` (*Current results*) lists them.",
         "",
     ]
 
@@ -388,7 +413,10 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
     ab = d.get("abstention") or []
     if ab:
         L += ["## Abstention and coverage", "",
-              "The system can decline to decide and route a case to a human grader.",
+              "The system can decline to decide and route a case to a human grader. "
+              + ("The band is fitted on the site's calibration half and measured on its "
+                 "held-out evaluation half." if site else
+                 "The band is fitted on validation and measured on the internal test set."),
               "",
               "| Coverage | Cases auto-decided | Sent to human | Sensitivity | Specificity |",
               "|---|---|---|---|---|"]
