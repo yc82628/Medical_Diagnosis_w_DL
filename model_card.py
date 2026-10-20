@@ -96,6 +96,85 @@ def _gate(d):
         return [f"could not run the gate: {e}"], False
 
 
+def _site_section(site: dict, external: dict) -> list[str]:
+    src = site.get("evaluation_half_under_source_profile") or {}
+    its = site.get("internal_test_under_site_profile") or {}
+    return [
+        "### Site calibration",
+        "",
+        f"The external set was split once, by image and stratified on grade (seed "
+        f"{site.get('split_seed')}), into a **calibration half** "
+        f"({site.get('n_calibration')} images) and an **evaluation half** "
+        f"({site.get('n_evaluation')} images). The calibrator, operating point and "
+        f"abstention band served for this site were refitted on the calibration half "
+        f"only. The evaluation half was read once, after the configuration was "
+        f"frozen; model selection used DeepDRiD validation and the calibration half "
+        f"(see *Domain-shift experiments*).",
+        "",
+        "| Same held-out evaluation half | Sensitivity | Specificity | ECE |",
+        "|---|---|---|---|",
+        f"| Source profile (no site step) | {_fmt(src.get('sensitivity'))} | "
+        f"{_fmt(src.get('specificity'))} | {_fmt(src.get('ece'), 4)} |",
+        f"| **Site profile (served)** | {_fmt(external.get('sensitivity'))} | "
+        f"{_fmt(external.get('specificity'))} | {_fmt(external.get('ece'), 4)} |",
+        "",
+        "What this means for deployment:",
+        "",
+        "- **The model is not plug-and-play at a new site.** Its ranking of cases "
+        "transfers; its probabilities and threshold do not. Every new site needs "
+        "its own labelled calibration sample, graded to the reference standard, "
+        "before results are used — and a held-out sample to confirm, as here.",
+        f"- The site profile is specific to this site. On the internal test it gives "
+        f"sensitivity {_fmt(its.get('sensitivity'))}, specificity "
+        f"{_fmt(its.get('specificity'))}, ECE {_fmt(its.get('ece'), 4)} (reported, not "
+        f"gated); the internal-test row above uses the source profile.",
+        "- IDRiD has no patient ids, so the split is by image: if one patient "
+        "contributed both eyes, they may sit on opposite halves, which flatters the "
+        "evaluation half slightly.",
+        "- Half of IDRiD is ~260 images: the evaluation-half sensitivity has a 95% "
+        "interval of roughly ±0.05.",
+        "",
+    ]
+
+
+def _experiments_section(path="artifacts/experiments/results.jsonl") -> list[str]:
+    p = Path(path)
+    if not p.exists():
+        return []
+    rows = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+    if not rows:
+        return []
+    return [
+        "## Domain-shift experiments",
+        "",
+        "Every configuration tried to close the external gap, failures included "
+        "(`domain_experiments.py`). Scored on DeepDRiD validation and the external "
+        "**calibration half** only — never on the internal test or the external "
+        "evaluation half. *src cal*: calibrator and threshold from DeepDRiD validation, "
+        "applied unchanged. *site cal*: refitted on the site, estimated by 2-fold "
+        "cross-fitting inside the calibration half (mean ± sd over 5 shuffles). Each "
+        "row is one training run; run-to-run noise is about ±0.01–0.02 AUROC.",
+        "",
+        *experiments_table(rows).splitlines(),
+        "",
+    ]
+
+
+def experiments_table(rows: list[dict]) -> str:
+    head = ("| Experiment | TTA | Val AUROC | Val spec@sens90 | Site AUROC | "
+            "Sens (src cal) | ECE (src cal) | Sens (site cal) | Spec (site cal) | "
+            "ECE (site cal) |")
+    lines = [head, "|" + "---|" * 10]
+    for r in rows:
+        lines.append(
+            f"| {r['name']} | {r['tta']} | {r['val_auroc']:.3f} | "
+            f"{r['val_spec_at_sens90']:.3f} | {r['site_auroc_raw']:.3f} | "
+            f"{r['src_sens']:.3f} | {r['src_ece']:.3f} | "
+            f"{r['site_sens']:.3f} ± {r['site_sens_sd']:.3f} | {r['site_spec']:.3f} | "
+            f"{r['site_ece']:.3f} ± {r['site_ece_sd']:.3f} |")
+    return "\n".join(lines)
+
+
 def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> str:
     p = Path(eval_path)
     if not p.exists():
@@ -109,6 +188,7 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
     d = json.loads(p.read_text())
     internal = d.get("internal_test") or {}
     external = d.get("external_test")
+    site = d.get("site_calibration") or {}
     L = []
  
     L += [
@@ -138,12 +218,22 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
         "",
         f"- Decision threshold: **{_fmt(d.get('operating_point'), 4)}** on calibrated "
         f"P(referable)",
-        f"- Chosen to achieve sensitivity ≥ "
-        f"**{_fmt(d.get('target_sensitivity'), 2)}** on the validation split, then frozen",
+        (f"- Chosen to achieve sensitivity ≥ **{_fmt(d.get('target_sensitivity'), 2)}** "
+         f"on the **calibration half of the external site** ({site.get('n_calibration')} "
+         f"images), then frozen — see *Site calibration* below"
+         if site else
+         f"- Chosen to achieve sensitivity ≥ "
+         f"**{_fmt(d.get('target_sensitivity'), 2)}** on the validation split, then frozen"),
         f"- Calibration method: **{(d.get('calibration') or {}).get('method', 'none')}** "
-        f"(selected empirically on held-out validation)",
+        f"(selected empirically on held-out "
+        f"{'site-calibration' if site else 'validation'} data)",
+        f"- Test-time augmentation: **{d.get('tta') or 'none'}** (the served predictor "
+        f"averages the same views)",
         "",
-        "The threshold was selected on validation and never on test. Sensitivity is "
+        ("The threshold was fitted on data that every reported number excludes. "
+         if site else
+         "The threshold was selected on validation and never on test. ") +
+        "Sensitivity is "
         "treated as a constraint rather than a quantity to trade off: a missed "
         "referable case risks irreversible sight loss, while a false positive costs "
         "one appointment.",
@@ -199,10 +289,18 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
             f"{_fmt(external.get('prevalence'))} |",
             f"| Missed referable | {internal.get('fn','—')} | {external.get('fn','—')} |",
             "",
-            "Same frozen operating point and calibration on both: nothing was refitted "
-            "on the external set.",
-            "",
         ]
+        if site:
+            L += [
+                f"Internal: the source profile (calibration and operating point fitted "
+                f"on DeepDRiD validation). External: the **site profile**, measured on "
+                f"the {site.get('n_evaluation')} held-out images of the external set "
+                f"that no calibration, threshold, band or model choice was fitted on.",
+                "",
+            ]
+        else:
+            L += ["Same frozen operating point and calibration on both: nothing was "
+                  "refitted on the external set.", ""]
         a = (internal.get("auroc_ci") or {}).get("point")
         b = (external.get("auroc_ci") or {}).get("point")
         if a is not None and b is not None:
@@ -210,6 +308,8 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
         L += ["**The external figures are the ones to rely on.** Internal test "
               "performance on a random split of a single source systematically "
               "overstates what happens at a new site.", ""]
+        if site:
+            L += _site_section(site, external)
     else:
         L += [
             "> **None performed.** This model has never been evaluated on data from "
@@ -225,6 +325,8 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
             "until external validation is run.**",
             "",
         ]
+
+    L += _experiments_section()
 
     # ---- acceptance gate ---------------------------------------------------
     fails, checked = _gate(d)
@@ -366,7 +468,9 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
         "| | |",
         "|---|---|",
         f"| Preprocessing fingerprint | `{d.get('preprocess_fingerprint','—')}` |",
-        f"| Calibration | `{json.dumps((d.get('calibration') or {}).get('method'))}` |",
+        f"| Calibration | `{json.dumps((d.get('calibration') or {}).get('method'))}`"
+        f"{' (site profile)' if site else ''} |",
+        f"| Test-time augmentation | `{d.get('tta') or 'none'}` |",
         f"| Evaluation artifact | `{eval_path}` |",
         "",
         "The preprocessing fingerprint is stored inside the model checkpoint and "

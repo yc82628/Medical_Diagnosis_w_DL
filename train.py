@@ -11,7 +11,7 @@ from tqdm import tqdm
 from config import CONFIG, Config, NUM_GRADES
 from dataset import get_dataloaders, pos_weights
 from model import (DRModel, OrdinalLoss, save_checkpoint, param_groups,
-                   get_device, count_parameters)
+                   get_device, count_parameters, tta_logits)
 from metrics import (threshold_at_sensitivity, screening_metrics,
                      quadratic_weighted_kappa)
 from splits import enforce_monotonic, grades_from_cumulative
@@ -36,6 +36,16 @@ def one_cycle_pct_start(total_steps: int, warmup_epochs: float,
     warm = int(round(total_steps * frac))
     warm = min(max(warm, 2), total_steps - 2)
     return warm / total_steps
+
+
+def seed_everything(seed: int) -> None:
+    """Seeds Python, NumPy and torch. Best effort: cuDNN kernels and
+    albumentations' own generators are not pinned, so runs still vary."""
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 # Epoch loops
@@ -78,14 +88,17 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
 
 
 @torch.no_grad()
-def predict(model, loader, device) -> dict:
-    """Returns raw referable logits plus cumulative probabilities and true labels."""
+def predict(model, loader, device, tta: str = "none") -> dict:
+    """
+    Returns raw referable logits plus cumulative probabilities and true labels.
+    Runs in fp32: some logits reach -700, which overflows fp16 autocast.
+    """
     model.eval()
     logits_all, y_all, g_all = [], [], []
 
     for batch in tqdm(loader, desc="  eval ", leave=False):
         images = batch["image"].to(device, non_blocking=True)
-        logits = model(images).float().cpu().numpy()
+        logits = tta_logits(model, images, tta).cpu().numpy()
         logits_all.append(logits)
         y_all.append(batch["referable"].numpy())
         g_all.append(batch["grade"].numpy())
@@ -110,6 +123,9 @@ def main(cfg: Config = CONFIG):
     print("=" * 68)
 
     device = get_device()
+    if tc.seed is not None:
+        seed_everything(tc.seed)
+    print(f"  Augmentation: {tc.augment}   seed: {tc.seed}")
     loaders, splits, df = get_dataloaders(cfg)
 
     print("\n  Building model...")
@@ -168,6 +184,7 @@ def main(cfg: Config = CONFIG):
             # still reads that key and converts it.)
             save_checkpoint(tc.save_path, model, cfg.preprocess,
                             extra={"epoch": epoch, "val_metrics": m,
+                                   "augment": tc.augment, "seed": tc.seed,
                                    "val_threshold_logit": float(thr),
                                    "val_threshold_prob": float(1 / (1 + np.exp(-np.clip(thr, -30, 30)))),
                                    "history": history})

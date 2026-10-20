@@ -32,3 +32,22 @@ def test_known_datasets_carry_licence_and_citation():
     assert "CC BY 4.0" in model_card._dataset_for(r"idrid\labels.csv")["licence"]
     assert "NON-COMMERCIAL" in model_card._dataset_for("aptos/labels_clean.csv")["licence"]
     assert "unknown" in model_card._dataset_for("other/labels.csv")["licence"]
+
+
+def test_card_explains_a_site_calibrated_profile(tmp_path):
+    ev = tmp_path / "evaluation.json"
+    ext = dict(_evaluation()["internal_test"], n=258)
+    site = {"split_seed": 20261019, "n_calibration": 258, "n_evaluation": 258,
+            "evaluation_half_under_source_profile": {"sensitivity": 0.75,
+                                                     "specificity": 0.85, "ece": 0.14},
+            "internal_test_under_site_profile": {"sensitivity": 0.97,
+                                                 "specificity": 0.6, "ece": 0.12}}
+    ev.write_text(json.dumps(_evaluation(external_test=ext, site_calibration=site,
+                                         tta="d8")))
+    text = model_card.build(str(ev), str(tmp_path / "card.md"))
+    assert "### Site calibration" in text
+    assert "calibration half of the external site" in text
+    assert "| Source profile (no site step) | 0.750 | 0.850 | 0.1400 |" in text
+    assert "not plug-and-play" in text
+    assert "Test-time augmentation: **d8**" in text
+    assert "nothing was refitted" not in text
