@@ -1,6 +1,6 @@
 # Model Card — Diabetic Retinopathy Referral Triage
 
-*Generated 2026-10-20 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
+*Generated 2026-10-21 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
 
 > **RESEARCH SOFTWARE — NOT A MEDICAL DEVICE.** No regulatory clearance has been sought or obtained. Not for clinical use.
 
@@ -115,7 +115,23 @@ Configurations started or planned but not completed have no result and are not i
 
 ## Image-quality gate
 
-Measured against human gradability labels on 2000 images (`validate_quality_gate.py`):
+A learned quality model (efficientnet_b0, 448 px, `quality_model.py`) decides gradability, trained on human quality ratings (`deepdrid/quality_labels.csv`). Patients were split 300 train / 100 validation / 100 test; no patient is in more than one.
+
+Its threshold (P(ungradable) ≥ **0.915**) was chosen on validation so that at most 5.0% of human-accepted images are rejected, then frozen. Held-out test, 400 images from 100 patients (214 human-rejected):
+
+| | Learned model | Classical checks |
+|---|---|---|
+| AUROC (human reject = positive) | 0.811 (95% CI 0.761–0.864) | 0.499 (sharpness) |
+| Human-rejected images caught | 33.6% (26.0–42.1) | 3.3% |
+| Human-accepted images rejected | 2.7% (0.0–6.4) | 1.1% |
+
+Intervals bootstrap patients. The classical checks (field of view, gross blur, exposure) still run as a backstop: the learned model can reject an image they pass, never pass one they reject.
+
+As served (learned model plus backstop), on the 400 held-out images (`validate_quality_gate.py`, which leaves out every image the model saw): catches **34.6%** of human-rejected images and rejects **3.2%** of human-accepted ones (6 of 186).
+
+66.4% of human-rejected test images still reach the DR model at this false-reject budget. The gate lowers that number; it does not remove the need for the abstention band and for human review of every output. Trained and tested on one source (DeepDRiD); not yet measured on other cameras.
+
+Classical checks alone, against human gradability labels on 2000 images (`validate_quality_gate.py --gate classical`):
 
 | | |
 |---|---|
@@ -123,7 +139,7 @@ Measured against human gradability labels on 2000 images (`validate_quality_gate
 | Human-accepted images the gate rejects (false rejects) | 0.025 |
 | Blur threshold in force when measured | 12.0 |
 
-The classical gate (sharpness, field of view, exposure) barely separates human-accepted from human-rejected images on real data, so it is set to remove gross failures only. It is a backstop, not a gradability assessment: safety rests on the abstention band and on human review of every output. A learned quality model trained on these labels is the intended replacement.
+They barely separate human-accepted from human-rejected images, so they are set to remove gross failures only.
 
 ## Abstention and coverage
 

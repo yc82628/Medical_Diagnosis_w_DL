@@ -108,7 +108,8 @@ def _ci_pct(d):
 
 def _quality_section(model_eval="artifacts/quality_model_eval.json",
                      classical_eval="artifacts/quality_gate_validation.json",
-                     checkpoint=None) -> list[str]:
+                     checkpoint=None,
+                     served_eval="artifacts/quality_gate_validation_served.json") -> list[str]:
     """The image-quality gate: learned model vs classical checks, as measured."""
     from quality_model import QUALITY_CHECKPOINT
 
@@ -126,7 +127,7 @@ def _quality_section(model_eval="artifacts/quality_model_eval.json",
         ts = s.get("test") or {}
         L += [f"A learned quality model ({m.get('backbone')}, {m.get('image_size')} px, "
               f"`quality_model.py`) decides gradability, trained on human quality "
-              f"ratings (`{m.get('labels')}`). Patients were split "
+              f"ratings (`{'/'.join(Path(str(m.get('labels'))).parts[-2:])}`). Patients were split "
               f"{(s.get('train') or {}).get('patients', '—')} train / "
               f"{(s.get('val') or {}).get('patients', '—')} validation / "
               f"{ts.get('patients', '—')} test; no patient is in more than one.", "",
@@ -147,6 +148,14 @@ def _quality_section(model_eval="artifacts/quality_model_eval.json",
               "Intervals bootstrap patients. The classical checks (field of view, gross "
               "blur, exposure) still run as a backstop: the learned model can reject an "
               "image they pass, never pass one they reject.", ""]
+        sv = json.loads(Path(served_eval).read_text()) if Path(served_eval).exists() else {}
+        if sv.get("quality_source") == "learned":
+            L += [f"As served (learned model plus backstop), on the {sv.get('n_images')} "
+                  f"held-out images (`validate_quality_gate.py`, which leaves out every "
+                  f"image the model saw): catches **{_pct(sv.get('catch_rate'))}** of "
+                  f"human-rejected images and rejects **{_pct(sv.get('false_reject_rate'))}** "
+                  f"of human-accepted ones ({sv.get('false_rejects')} of "
+                  f"{sv.get('n_human_accept')}).", ""]
         ck = Path(checkpoint or QUALITY_CHECKPOINT)
         if ck.exists():
             from predictor import file_sha256

@@ -38,7 +38,7 @@ def test_quality_section_compares_learned_and_classical(tmp_path):
     ci = {"point": 0.6, "lo": 0.5, "hi": 0.7, "n_boot": 10}
     me = tmp_path / "quality_model_eval.json"
     me.write_text(json.dumps({
-        "backbone": "resnet18", "image_size": 448, "labels": "deepdrid/quality_labels.csv",
+        "backbone": "resnet18", "image_size": 448, "labels": "C:/x/deepdrid/quality_labels.csv",
         "threshold": 0.7, "max_false_reject_target": 0.05, "checkpoint_sha256": "abc",
         "split": {"train": {"patients": 300}, "val": {"patients": 100},
                   "test": {"patients": 100}},
@@ -49,8 +49,14 @@ def test_quality_section_compares_learned_and_classical(tmp_path):
                            "false_reject_rate": 0.025}}))
     ck = tmp_path / "quality_model.pt"
     ck.write_bytes(b"other weights")
+    served = tmp_path / "served.json"
+    served.write_text(json.dumps({"quality_source": "learned", "n_images": 400,
+                                  "catch_rate": 0.62, "false_reject_rate": 0.03,
+                                  "false_rejects": 6, "n_human_accept": 186}))
     text = "\n".join(model_card._quality_section(str(me), str(tmp_path / "none.json"),
-                                                 checkpoint=str(ck)))
+                                                 checkpoint=str(ck), served_eval=str(served)))
+    assert "(`deepdrid/quality_labels.csv`)" in text      # never a local absolute path
+    assert "catches **62.0%** of human-rejected images and rejects **3.0%**" in text
     assert "| AUROC (human reject = positive) | 0.850 (95% CI 0.800–0.900) | 0.510" in text
     assert "| Human-rejected images caught | 60.0% (50.0–70.0) | 5.0% |" in text
     assert "40.0% of human-rejected test images still reach" in text
