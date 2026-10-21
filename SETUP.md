@@ -130,7 +130,7 @@ from training and become "manual review" at serving time, never "healthy".**
 python -m pytest -q
 ```
 
-Expect `94 passed`. These need no GPU and no torch — they cover the
+Expect `124 passed`. They need no GPU; without torch the torch-based ones skip. They cover the
 leakage-critical splitting, the evaluation harness, the model acceptance gate,
 and the serving layer (sign-in, encryption, audit chain, FHIR, DICOM).
 

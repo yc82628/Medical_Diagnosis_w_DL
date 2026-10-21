@@ -57,3 +57,22 @@ def test_quality_section_compares_learned_and_classical(tmp_path):
     assert "**Stale:**" in text
     assert model_card._quality_section(str(tmp_path / "x.json"),
                                        str(tmp_path / "y.json")) == []
+
+
+def test_card_explains_a_site_calibrated_profile(tmp_path):
+    ev = tmp_path / "evaluation.json"
+    ext = dict(_evaluation()["internal_test"], n=258)
+    site = {"split_seed": 20261019, "n_calibration": 258, "n_evaluation": 258,
+            "evaluation_half_under_source_profile": {"sensitivity": 0.75,
+                                                     "specificity": 0.85, "ece": 0.14},
+            "internal_test_under_site_profile": {"sensitivity": 0.97,
+                                                 "specificity": 0.6, "ece": 0.12}}
+    ev.write_text(json.dumps(_evaluation(external_test=ext, site_calibration=site,
+                                         tta="d8")))
+    text = model_card.build(str(ev), str(tmp_path / "card.md"))
+    assert "### Site calibration" in text
+    assert "calibration half of the external site" in text
+    assert "| Source profile (no site step) | 0.750 | 0.850 | 0.1400 |" in text
+    assert "not plug-and-play" in text
+    assert "Test-time augmentation: **d8**" in text
+    assert "nothing was refitted" not in text

@@ -23,6 +23,7 @@ Endpoints                                          roles
     GET  /api/cases/{id}/image   preview           any
     GET  /api/cases/{id}/gradcam attention map     grader, admin
     POST /api/cases/{id}/verdict record verdict    grader, admin
+    GET  /api/visits             visit worklist    any
     GET  /api/encounters/{id}    visit decision    any
     GET  /api/encounters/{id}/fhir  FHIR R4 report grader, admin (logged)
     GET  /api/summary            rollup            any
@@ -458,6 +459,29 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
         if not rows:
             raise HTTPException(404, f"No visit {encounter_id}")
         return rows, encounters.combine(rows)
+
+    @app.get("/api/visits")
+    def visits(limit: int = 200, user: dict = Depends(current_user)):
+        """
+        Worklist of visits, each with its patient-level decision. Visits that
+        still need a grader come first, then by clinical priority (a visit
+        needing human review, then referrals, then incomplete, then routine),
+        then most recent.
+        """
+        order = {"MANUAL_REVIEW": 0, "REFER": 1, "INCOMPLETE": 2, "ROUTINE": 3}
+        rows = []
+        for v in audit.list_visits(con, max(1, min(limit, 1000))):
+            combined = encounters.combine(v["cases"])
+            pending = sum(1 for c in v["cases"] if not c["latest_verdict"])
+            rows.append({
+                "encounter_id": v["encounter_id"], "patient_id": v["patient_id"],
+                "first_utc": v["first_utc"], "last_utc": v["last_utc"],
+                "n_images": v["n_images"], "pending_images": pending,
+                "needs_review": pending > 0, **combined,
+            })
+        rows.sort(key=lambda r: r["last_utc"], reverse=True)
+        rows.sort(key=lambda r: (not r["needs_review"], order.get(r["decision"], 9)))
+        return {"visits": rows}
 
     @app.get("/api/encounters/{encounter_id:path}/fhir")
     def encounter_fhir(encounter_id: str, user: dict = Depends(require(*CLINICAL))):

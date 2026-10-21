@@ -3,311 +3,260 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Retinal Screening — Grader Review</title>
+<title>Retinal Screening</title>
 <style>
 :root{
   --ink:#101419; --panel:#171C24; --raise:#1E242E; --line:#2A323E;
-  --text:#E6EAF0; --muted:#8C97A8; --faint:#5C6675;
-  --amber:#E9A445;          /* fundus tissue — the one accent */
-  --refer:#E4695C; --routine:#4CB08A; --review:#7BA0D9;
+  --text:#E6EAF0; --muted:#9AA4B4; --faint:#6A7483;
+  --amber:#E9A445;
+  --refer:#E4695C; --routine:#4CB08A; --review:#7BA0D9; --incomplete:#9AA4B4;
   --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --cond:var(--sans);
   --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{
-  margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
-  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
-}
-button{font-family:inherit;font-size:inherit;cursor:pointer}
-.eyebrow{
-  font-family:var(--cond);font-size:11px;font-weight:600;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--faint);
-}
+body{margin:0;background:var(--ink);color:var(--text);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select{font:inherit}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-
-/* ---------- scope banner ---------- */
-#scope{
-  background:linear-gradient(90deg,#2A1E14,#241A12);
-  border-bottom:1px solid #4A3520;padding:9px 20px;
-  display:flex;gap:14px;align-items:center;flex-wrap:wrap;
-}
-#scope b{color:var(--amber);font-weight:600;letter-spacing:.04em}
-#scope span{color:#C9A87C;font-size:12.5px}
-
-/* ---------- top bar ---------- */
-header{
-  display:flex;align-items:center;gap:22px;padding:14px 20px;
-  border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap;
-}
-.brand{display:flex;align-items:baseline;gap:11px;margin-right:auto}
-.brand h1{font-size:16px;font-weight:600;margin:0;letter-spacing:-.01em}
-.brand .sub{color:var(--faint);font-size:12px}
-.meta{display:flex;gap:22px;flex-wrap:wrap}
-.meta div{display:flex;flex-direction:column;gap:2px}
-.meta .v{font-family:var(--mono);font-size:12.5px;color:var(--text)}
-
-/* ---------- layout ---------- */
-main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 108px)}
-#rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
-#stage{padding:22px 26px;overflow-y:auto}
-
-/* ---------- dropzone ---------- */
-#drop{
-  margin:14px;padding:22px 16px;border:1.5px dashed var(--line);border-radius:8px;
-  text-align:center;color:var(--muted);transition:border-color .15s,background .15s;
-}
-#drop.hot{border-color:var(--amber);background:rgba(233,164,69,.06)}
-#drop strong{display:block;color:var(--text);font-weight:500;margin-bottom:4px}
-#drop small{font-size:12px;color:var(--faint)}
-#pick{
-  margin-top:12px;background:var(--raise);color:var(--text);border:1px solid var(--line);
-  padding:7px 14px;border-radius:6px;
-}
-#pick:hover{border-color:var(--amber);color:var(--amber)}
-
-/* ---------- worklist ---------- */
-.railhead{padding:4px 16px 10px;display:flex;justify-content:space-between;align-items:baseline}
-#list{overflow-y:auto;flex:1;min-height:0;padding-bottom:12px}
-.case{
-  display:grid;grid-template-columns:3px 1fr auto;gap:11px;align-items:center;
-  padding:11px 16px 11px 0;border-bottom:1px solid rgba(42,50,62,.55);
-  cursor:pointer;transition:background .12s;
-}
-.case:hover{background:rgba(255,255,255,.026)}
-.case.on{background:rgba(233,164,69,.08)}
-.case .bar{height:100%;min-height:34px;border-radius:0 2px 2px 0}
-.case .fn{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.case .st{font-size:11px;color:var(--faint);margin-top:1px}
-.case .p{font-family:var(--mono);font-size:13px;color:var(--muted)}
-.REFER{--c:var(--refer)} .ROUTINE{--c:var(--routine)} .MANUAL_REVIEW{--c:var(--review)}
-.case .bar{background:var(--c)}
-.tag{
-  display:inline-block;font-family:var(--cond);font-size:10.5px;font-weight:600;
-  letter-spacing:.1em;text-transform:uppercase;padding:2.5px 7px;border-radius:3px;
-  color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent);
-  border:1px solid color-mix(in srgb,var(--c) 35%,transparent);
-}
-
-/* ---------- empty ---------- */
-.empty{text-align:center;color:var(--faint);padding:70px 30px;max-width:440px;margin:0 auto}
-.empty h2{font-family:var(--cond);font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-
-/* ---------- case view ---------- */
-.top{display:flex;gap:16px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap}
-.top h2{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
-.grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:26px;align-items:start}
-figure{margin:0}
-.imgwrap{position:relative;line-height:0}
-figure img{width:100%;border-radius:8px;border:1px solid var(--line);display:block;background:#000}
-.cam-layer{position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;border-color:transparent}
-.cam-layer.on{opacity:1}
-.figbar{display:flex;align-items:center;gap:12px;margin-top:8px}
-.cambtn{background:var(--raise);color:var(--text);border:1px solid var(--line);
-  padding:6px 12px;border-radius:6px;font-size:12.5px;white-space:nowrap}
-.cambtn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
-.cambtn.active{background:color-mix(in srgb,var(--amber) 18%,transparent);border-color:var(--amber);color:var(--amber)}
-.cambtn:disabled{opacity:.5;cursor:not-allowed}
-.cambtn.loading{color:var(--faint)}
-figcaption{color:var(--faint);font-size:11.5px;font-family:var(--mono);margin:0}
-.camnote{color:var(--faint);font-size:11.5px;margin:8px 0 0;line-height:1.5}
-.camnote.warn{color:var(--review)}
-
-.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:17px 18px;margin-bottom:16px}
-.card h3{margin:0 0 12px;font-family:var(--cond);font-size:11px;font-weight:600;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-
-/* ---------- SIGNATURE: decision axis ---------- */
-.axis{margin:6px 0 4px}
-.axiswrap{position:relative;height:34px;margin:26px 0 8px}
-.track{
-  position:absolute;inset:auto 0 12px;height:9px;border-radius:5px;overflow:hidden;
-  background:var(--raise);display:flex;
-}
-.zone{height:100%}
-.zone.r{background:linear-gradient(90deg,rgba(76,176,138,.55),rgba(76,176,138,.3))}
-.zone.a{background:repeating-linear-gradient(-45deg,rgba(123,160,217,.5) 0 5px,rgba(123,160,217,.22) 5px 10px)}
-.zone.f{background:linear-gradient(90deg,rgba(228,105,92,.32),rgba(228,105,92,.62))}
-.opline{position:absolute;bottom:8px;width:1.5px;height:17px;background:var(--text);opacity:.65}
-.opline::after{
-  content:attr(data-l);position:absolute;top:-15px;left:50%;transform:translateX(-50%);
-  font-family:var(--mono);font-size:9.5px;color:var(--muted);white-space:nowrap;
-}
-.marker{
-  position:absolute;bottom:4px;width:3px;height:25px;background:var(--amber);
-  border-radius:2px;box-shadow:0 0 11px rgba(233,164,69,.75);
-  transition:left .55s cubic-bezier(.3,.9,.35,1);
-}
-.marker::after{
-  content:attr(data-v);position:absolute;top:-19px;left:50%;transform:translateX(-50%);
-  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--amber);
-}
-.axlabels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
-.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;color:var(--muted)}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-
-ul.reasons{margin:0;padding-left:17px;color:var(--muted);font-size:13px}
-ul.reasons li{margin-bottom:5px}
-ul.reasons li:last-child{margin-bottom:0}
-
-table.kv{width:100%;border-collapse:collapse;font-size:12.5px}
-table.kv td{padding:5px 0;border-bottom:1px solid rgba(42,50,62,.5);vertical-align:top}
-table.kv td:first-child{color:var(--faint);width:44%}
-table.kv td:last-child{font-family:var(--mono);text-align:right}
-table.kv tr:last-child td{border-bottom:none}
-
-/* ---------- verdict ---------- */
-.vbtns{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px}
-.vb{
-  flex:1;min-width:104px;background:var(--raise);border:1px solid var(--line);
-  color:var(--text);padding:10px 12px;border-radius:7px;font-weight:500;
-  transition:border-color .13s,color .13s,background .13s;
-}
-.vb:hover{border-color:var(--c,var(--amber));color:var(--c,var(--amber))}
-.vb.sel{background:color-mix(in srgb,var(--c) 17%,transparent);border-color:var(--c);color:var(--c)}
-input[type=text]{
-  width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);
-  padding:9px 11px;border-radius:6px;font-family:inherit;font-size:13px;
-}
-input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:transparent}
-#save{
-  margin-top:11px;width:100%;background:var(--amber);color:#181206;border:none;
-  padding:11px;border-radius:7px;font-weight:600;
-}
-#save:disabled{background:var(--raise);color:var(--faint);cursor:not-allowed}
-.trail{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.trail div{padding:6px 0;border-bottom:1px solid rgba(42,50,62,.5)}
-.trail div:last-child{border-bottom:none}
-
-/* ---------- summary strip ---------- */
-#summary{display:flex;gap:26px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
-#summary div{display:flex;flex-direction:column}
-#summary .v{font-family:var(--mono);font-size:16px;font-weight:500}
-
-/* ---------- banners ---------- */
-#scope.unvalidated{background:linear-gradient(90deg,#3A1614,#2E1412);border-bottom-color:#6A2A24}
-#scope.unvalidated b{color:var(--refer)}
-#scope.unvalidated span{color:#E3A59D}
-
-/* ---------- sign-in ---------- */
-#login{position:fixed;inset:0;background:var(--ink);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
-#login.on{display:flex}
-#login form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:26px 24px}
-#login h1{font-size:17px;margin:0 0 4px}
-#login p{color:var(--faint);font-size:12.5px;margin:0 0 18px}
-#login label{display:block;margin:0 0 12px}
-#login .err{color:var(--refer);font-size:12.5px;min-height:18px;margin:4px 0 0}
-input[type=password],select{
-  width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);
-  padding:9px 11px;border-radius:6px;font-family:inherit;font-size:13px;
-}
-input[type=password]:focus,select:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:transparent}
-.primary{width:100%;background:var(--amber);color:#181206;border:none;padding:11px;border-radius:7px;font-weight:600}
-.primary:disabled{background:var(--raise);color:var(--faint);cursor:not-allowed}
-.ghost{background:var(--raise);color:var(--text);border:1px solid var(--line);padding:6px 12px;border-radius:6px;font-size:12.5px}
-.ghost:hover{border-color:var(--amber);color:var(--amber)}
-.who{display:flex;align-items:center;gap:10px}
-
-/* ---------- upload fields ---------- */
-.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 14px 2px}
-.fields label{display:flex;flex-direction:column;gap:3px}
-.fields .wide{grid-column:1/-1}
-.hint{color:var(--faint);font-size:11.5px;margin:6px 14px 0}
-
-/* ---------- visit + monitoring ---------- */
-.eyes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 12px}
-.eye{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:10px 12px}
-.eye .src{color:var(--faint);font-size:11px}
-.warnbox{background:color-mix(in srgb,var(--refer) 12%,transparent);border:1px solid color-mix(in srgb,var(--refer) 40%,transparent);color:#F1B4AC;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:10px}
-.okbox{background:color-mix(in srgb,var(--routine) 12%,transparent);border:1px solid color-mix(in srgb,var(--routine) 40%,transparent);color:#A9DCC6;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:10px}
-.tablewrap{overflow-x:auto}
-table.grid{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--mono)}
-table.grid th{font-family:var(--cond);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:600}
-table.grid td{text-align:right;padding:6px 8px;border-bottom:1px solid rgba(42,50,62,.5)}
-table.grid th:first-child,table.grid td:first-child{text-align:left}
-.INCOMPLETE{--c:var(--muted)}
-
+.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-@media (max-width:960px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}
-  #rail{border-right:none;border-bottom:1px solid var(--line)}}
+
+.REFER{--c:var(--refer)} .ROUTINE{--c:var(--routine)} .MANUAL_REVIEW,.UNGRADABLE{--c:var(--review)} .INCOMPLETE{--c:var(--incomplete)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;
+  color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);white-space:nowrap}
+
+/* ---------- safety strip ---------- */
+#strip{padding:7px 18px;font-size:13px;color:var(--muted);background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+#strip b{color:var(--text);font-weight:600}
+#strip.DEMO{background:#2A2114;border-color:#4A3520;color:#D9BB8E} #strip.DEMO b{color:var(--amber)}
+#strip.UNVALIDATED{background:#341614;border-color:#6A2A24;color:#E8B1AA} #strip.UNVALIDATED b{color:var(--refer)}
+#strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:13px}
+#stripNote{flex-basis:100%;font-size:12.5px;display:none}
+#stripNote.on{display:block}
+
+/* ---------- top bar ---------- */
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.01em}
+.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid}
+.pill.MODEL{color:var(--routine);border-color:color-mix(in srgb,var(--routine) 50%,transparent)}
+.pill.UNVALIDATED{color:var(--refer);border-color:color-mix(in srgb,var(--refer) 50%,transparent)}
+.pill.DEMO{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 50%,transparent)}
+.spacer{flex:1}
+.btn{background:var(--raise);border:1px solid var(--line);padding:7px 13px;border-radius:8px;font-size:14px}
+.btn:hover:not(:disabled){border-color:var(--amber)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#1A1307;font-weight:650}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.small{padding:4px 10px;font-size:13px}
+.who{font-size:13px;color:var(--muted)}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:330px 1fr;height:calc(100vh - 92px);min-height:420px}
+#rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+#stage{overflow-y:auto;min-height:0}
+@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:46vh}}
+
+/* ---------- worklist ---------- */
+.tabs{display:flex;gap:4px;padding:12px 12px 8px}
+.tabs button{flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 4px;font-size:13px;color:var(--muted)}
+.tabs button.on{background:var(--raise);color:var(--text);border-color:var(--faint)}
+.search{padding:0 12px 10px}
+.search input{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);padding:8px 11px;border-radius:8px;font-size:14px}
+#list{overflow-y:auto;flex:1;min-height:0}
+.visit{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid rgba(42,50,62,.6);padding:11px 14px 11px 12px;border-left:3px solid var(--c)}
+.visit:hover{background:rgba(255,255,255,.03)}
+.visit.on{background:rgba(233,164,69,.09)}
+.visit .row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.visit .pid{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:12.5px;color:var(--faint)}
+.eyedot{display:inline-flex;align-items:center;gap:3px}
+.eyedot i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
+.eyedot.none{--c:var(--line)}
+.pending{color:var(--amber)}
+.empty-list{padding:28px 18px;color:var(--faint);font-size:14px;text-align:center}
+.railfoot{border-top:1px solid var(--line);padding:9px 14px;font-size:12px;color:var(--faint)}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted)}
+
+/* ---------- visit view ---------- */
+.wrap{padding:20px 24px 96px;max-width:1180px}
+.vhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.vhead h2{margin:0;font-size:22px;font-weight:650}
+.vhead .meta{color:var(--faint);font-size:13.5px}
+.outcome{border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 9%,var(--panel));
+  border-radius:10px;padding:13px 16px;margin-bottom:18px}
+.outcome h3{margin:0 0 3px;font-size:18px;color:var(--c)}
+.outcome p{margin:0;color:var(--muted);font-size:14px}
+.eyes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:1100px){.eyes{grid-template-columns:1fr}}
+.eye{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:11px}
+.eye .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.eye .top h4{margin:0;font-size:15px}
+.eye .src{font-size:12.5px;color:var(--faint);margin-left:auto}
+.imgbox{position:relative;line-height:0;background:#000;border-radius:9px;overflow:hidden;border:1px solid var(--line);aspect-ratio:1/1}
+.imgbox img{width:100%;height:100%;object-fit:contain;display:block}
+.imgbox .cam{position:absolute;inset:0;opacity:0;transition:opacity .3s;pointer-events:none}
+.imgbox .cam.on{opacity:1}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap}
+.thumbs button{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12.5px;display:inline-flex;gap:6px;align-items:center}
+.thumbs button.on{border-color:var(--amber);color:var(--amber)}
+.thumbs i{width:8px;height:8px;border-radius:50%;background:var(--c);display:inline-block}
+.result{font-size:14.5px}
+.result b{color:var(--c)}
+.result .sub{color:var(--faint);font-size:13px;margin-top:2px}
+.warn{background:color-mix(in srgb,var(--review) 12%,transparent);border:1px solid color-mix(in srgb,var(--review) 40%,transparent);border-radius:8px;padding:8px 11px;font-size:13.5px;color:#C5D4EE}
+.decide .eyebrow{display:block;margin-bottom:6px}
+.vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.vb{background:var(--raise);border:1px solid var(--line);border-radius:9px;padding:10px 6px;font-weight:600;font-size:14px;position:relative}
+.vb:hover{border-color:var(--c)}
+.vb.sel{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);color:var(--c)}
+.vb .sug{position:absolute;top:-8px;right:6px;font-size:10px;font-weight:600;background:var(--ink);border:1px solid var(--line);border-radius:999px;padding:0 6px;color:var(--faint)}
+.graded{font-size:12.5px;color:var(--faint);margin-top:6px}
+.missing{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;border:1px dashed var(--line);border-radius:9px;color:var(--faint);font-size:14px;text-align:center;padding:20px}
+details{border-top:1px solid var(--line);padding-top:8px}
+summary{cursor:pointer;color:var(--faint);font-size:13px}
+table.kv{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+table.kv td{padding:4px 0;border-bottom:1px solid rgba(42,50,62,.5);vertical-align:top}
+table.kv td:first-child{color:var(--faint);width:46%}
+table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break-all}
+.camnote{font-size:12.5px;color:var(--faint);margin:0}
+.camnote.alert{color:#F1B4AC}
+
+/* decision axis (inside technical details) */
+.axiswrap{position:relative;height:30px;margin:22px 0 4px}
+.track{position:absolute;inset:auto 0 10px;height:8px;border-radius:4px;overflow:hidden;background:var(--raise);display:flex}
+.zone.r{background:rgba(76,176,138,.5)} .zone.a{background:repeating-linear-gradient(-45deg,rgba(123,160,217,.5) 0 5px,rgba(123,160,217,.2) 5px 10px)} .zone.f{background:rgba(228,105,92,.55)}
+.opline{position:absolute;bottom:6px;width:1.5px;height:15px;background:var(--text);opacity:.6}
+.marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--amber);border-radius:2px}
+.marker::after{content:attr(data-v);position:absolute;top:-17px;left:50%;transform:translateX(-50%);font:600 11px var(--mono);color:var(--amber)}
+.axlabels{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--faint)}
+
+/* sticky action bar */
+.actions{position:sticky;bottom:0;margin-top:18px;background:linear-gradient(transparent,var(--ink) 30%);padding:18px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:8px;font-size:14px}
+.saved{color:var(--routine);font-size:13.5px}
+
+.blank{padding:80px 30px;text-align:center;color:var(--faint);max-width:520px;margin:0 auto}
+.blank h2{color:var(--muted);font-size:18px;margin:0 0 8px}
+
+/* ---------- dialogs ---------- */
+.overlay{position:fixed;inset:0;background:rgba(5,7,10,.72);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.overlay.on{display:flex}
+.dialog{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+.dialog h2{margin:0 0 4px;font-size:18px}
+.dialog p{margin:0 0 16px;color:var(--faint);font-size:13.5px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field input,.field select{background:var(--ink);border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:8px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;color:var(--muted);margin:4px 0 12px}
+.drop.hot{border-color:var(--amber);background:rgba(233,164,69,.06)}
+.err{color:var(--refer);font-size:13px;min-height:18px}
+.row{display:flex;gap:8px;justify-content:flex-end}
+
+/* monitoring */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.alertbox{background:color-mix(in srgb,var(--refer) 12%,transparent);border:1px solid color-mix(in srgb,var(--refer) 40%,transparent);color:#F1B4AC;border-radius:8px;padding:9px 12px;font-size:13.5px;margin-bottom:8px}
+.okbox{background:color-mix(in srgb,var(--routine) 12%,transparent);border:1px solid color-mix(in srgb,var(--routine) 40%,transparent);color:#A9DCC6;border-radius:8px;padding:9px 12px;font-size:13.5px;margin-bottom:8px}
+.tablewrap{overflow-x:auto}
+table.grid{width:100%;border-collapse:collapse;font:12.5px var(--mono)}
+table.grid th{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.grid td{text-align:right;padding:6px 8px;border-bottom:1px solid rgba(42,50,62,.5)}
+table.grid th:first-child,table.grid td:first-child{text-align:left}
 </style>
 </head>
 <body>
 
-<div id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-  <form id="loginForm" autocomplete="on">
-    <h1 id="loginTitle">Retinal Screening</h1>
-    <p>Sign in with your grading account. Research software — not a medical device.</p>
-    <label><span class="eyebrow">Username</span>
-      <input type="text" id="luser" autocomplete="username" required></label>
-    <label><span class="eyebrow">Password</span>
-      <input type="password" id="lpass" autocomplete="current-password" required></label>
-    <button class="primary" id="lbtn">Sign in</button>
+<div class="overlay" id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <form class="dialog" id="loginForm" autocomplete="on">
+    <h2 id="loginTitle">Retinal Screening</h2>
+    <p>Sign in with your account. Research software — not a medical device.</p>
+    <label class="field"><span class="eyebrow">Username</span><input type="text" id="luser" autocomplete="username" required></label>
+    <label class="field"><span class="eyebrow">Password</span><input type="password" id="lpass" autocomplete="current-password" required></label>
     <div class="err" id="lerr" role="alert"></div>
+    <button class="btn primary" id="lbtn" style="width:100%">Sign in</button>
   </form>
 </div>
 
-<div id="scope">
-  <b>Research software — not a medical device</b>
-  <span>Referral triage only. Every output requires review by a qualified grader. Detects referable diabetic retinopathy; does not assess glaucoma, AMD, or other pathology.</span>
+<div class="overlay" id="addDlg" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+  <div class="dialog">
+    <h2 id="addTitle">Add images</h2>
+    <p>DICOM files carry the patient and eye in their tags. For PNG or JPEG, fill them in first.</p>
+    <div class="grid2">
+      <label class="field"><span class="eyebrow">Patient ID</span><input type="text" id="pid" autocomplete="off" maxlength="64"></label>
+      <label class="field"><span class="eyebrow">Eye</span>
+        <select id="eye"><option value="">Select…</option><option value="right">Right (OD)</option><option value="left">Left (OS)</option></select></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="eyebrow">Visit ID <span style="text-transform:none;letter-spacing:0">(optional)</span></span><input type="text" id="enc" autocomplete="off" maxlength="128" placeholder="patient + today"></label>
+      <label class="field"><span class="eyebrow">Camera <span style="text-transform:none;letter-spacing:0">(optional)</span></span><input type="text" id="dev" autocomplete="off" maxlength="128"></label>
+    </div>
+    <div class="drop" id="drop">
+      <div id="dropMsg">Drop images here, or</div>
+      <button class="btn small" id="pick" style="margin-top:8px">Choose files</button>
+      <input id="file" type="file" accept="image/*,.dcm,application/dicom" multiple hidden>
+    </div>
+    <div class="err" id="addErr" role="alert"></div>
+    <div class="row"><button class="btn" id="addClose">Close</button></div>
+  </div>
 </div>
 
+<div id="strip"><b>Research software — not a medical device.</b><span id="stripText">Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.</span></div>
+
 <header>
-  <div class="brand">
-    <h1>Retinal Screening</h1>
-    <span class="sub">Grader review</span>
-  </div>
-  <div class="meta" id="meta"></div>
-  <div class="who" id="who"></div>
+  <h1>Retinal Screening</h1>
+  <span class="pill" id="mode" hidden></span>
+  <span class="spacer"></span>
+  <button class="btn primary" id="addBtn" hidden>+ Add images</button>
+  <button class="btn" id="monBtn" hidden>Monitoring</button>
+  <span class="who" id="who"></span>
+  <button class="btn" id="outBtn" hidden>Sign out</button>
 </header>
 
 <main>
   <aside id="rail">
-    <div class="fields">
-      <label><span class="eyebrow">Patient ID</span><input type="text" id="pid" autocomplete="off" maxlength="64"></label>
-      <label><span class="eyebrow">Eye</span>
-        <select id="eye"><option value="">—</option><option value="right">Right (OD)</option><option value="left">Left (OS)</option></select></label>
-      <label><span class="eyebrow">Visit ID</span><input type="text" id="enc" autocomplete="off" maxlength="128" placeholder="optional"></label>
-      <label><span class="eyebrow">Camera</span><input type="text" id="dev" autocomplete="off" maxlength="128" placeholder="optional"></label>
+    <div class="tabs" role="tablist">
+      <button data-tab="todo" class="on" role="tab">To review <span id="nTodo"></span></button>
+      <button data-tab="done" role="tab">Reviewed <span id="nDone"></span></button>
+      <button data-tab="all" role="tab">All</button>
     </div>
-    <p class="hint">DICOM files carry these in their tags; for PNG/JPEG enter patient and eye first. Visit defaults to patient + today.</p>
-    <div id="drop">
-      <strong>Drop fundus images here</strong>
-      <small>DICOM, PNG, JPG or TIFF — multiple accepted</small><br>
-      <button id="pick">Choose files</button>
-      <input id="file" type="file" accept="image/*,.dcm,application/dicom" multiple hidden>
-    </div>
-    <div class="railhead">
-      <span class="eyebrow">Worklist</span>
-      <span class="eyebrow" id="count"></span>
-    </div>
+    <div class="search"><input type="search" id="find" placeholder="Find patient ID" aria-label="Find patient ID"></div>
     <div id="list"></div>
-    <div id="summary"></div>
+    <div class="railfoot"><kbd>J</kbd> / <kbd>K</kbd> next / previous patient</div>
   </aside>
-
   <section id="stage">
-    <div class="empty">
-      <h2>No case selected</h2>
-      <p>Add fundus images to build a worklist. Cases needing human review appear first, then likely referrals — not upload order.</p>
-    </div>
+    <div class="blank"><h2>No patient selected</h2><p>Choose a patient from the list, or add images. Patients needing a decision are listed first.</p></div>
   </section>
 </main>
 
 <script>
 const $ = s => document.querySelector(s);
-let SYS = null, ME = null, CASES = [], CURRENT = null, PICKED = null;
+let SYS = null, ME = null, VISITS = [], TAB = 'todo', CURRENT = null, DETAIL = null;
+let PICK = {};          // eye -> chosen verdict for the open visit
+let SHOWN = {};         // eye -> case_id currently shown
+const CAM = {};         // case_id -> {url, border, warn} | {error}
 
-const LABEL = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Human review',
-               UNGRADABLE:'Ungradable', INCOMPLETE:'Incomplete'};
-// Escape every server-supplied string before it goes into innerHTML. Filenames,
-// patient IDs and notes come from users, so an unescaped value like
-// <img src=x onerror=...> would run script in every grader's browser.
+const SHORT = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Needs review', UNGRADABLE:'Ungradable', INCOMPLETE:'Incomplete'};
+const HEADLINE = {
+  REFER:'Refer to ophthalmology',
+  ROUTINE:'Routine re-screening',
+  MANUAL_REVIEW:'Needs a grader’s decision',
+  INCOMPLETE:'Incomplete — an eye has no result yet',
+};
+const EYES = [['right','Right eye (OD)'], ['left','Left eye (OS)']];
+
+// Escape every server-supplied string before it goes into innerHTML: patient
+// IDs, filenames and notes come from users.
 const esc = v => v == null ? '' : String(v).replace(/[&<>"']/g,
   ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const pct = v => v == null ? '—' : (v*100).toFixed(0) + '%';
+// Never show 0% or 100%: calibration fitted on a few hundred images cannot
+// justify certainty, and a clinician reads "100%" as "certain".
+const pct = v => v == null ? '—' : v >= 0.995 ? '>99%' : v <= 0.005 ? '<1%' : (v*100).toFixed(0) + '%';
 const clinical = () => ME && ME.role !== 'photographer';
+const day = iso => iso ? new Date(iso).toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'}) : '';
+const time = iso => iso ? new Date(iso).toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'}) : '';
+const plainReason = r => String(r).replace(/\s*\([^)]*\)/g, '');
 
 async function api(path, opts){
   const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts));
@@ -315,8 +264,7 @@ async function api(path, opts){
     showLogin('Your session has ended. Sign in again.');
     throw {detail:'Sign in required.'};
   }
-  const isJson = (r.headers.get('content-type') || '').includes('json');
-  const body = isJson ? await r.json() : null;
+  const body = (r.headers.get('content-type') || '').includes('json') ? await r.json() : null;
   if (!r.ok) throw (body || {detail: r.statusText});
   return body;
 }
@@ -336,57 +284,321 @@ $('#loginForm').onsubmit = async e => {
     $('#lpass').value = '';
     $('#login').classList.remove('on');
     await boot();
-  } catch(err){
-    $('#lerr').textContent = err.detail || 'Sign-in failed.';
-  } finally { $('#lbtn').disabled = false; }
+  } catch(err){ $('#lerr').textContent = err.detail || 'Sign-in failed.'; }
+  finally { $('#lbtn').disabled = false; }
 };
-async function signOut(){
+$('#outBtn').onclick = async () => {
   await fetch('/api/logout', {method:'POST', credentials:'same-origin'});
-  ME = null; CURRENT = null;
-  $('#list').innerHTML = ''; $('#stage').innerHTML = '';
+  ME = null; CURRENT = null; VISITS = [];
+  $('#list').innerHTML = ''; blank();
   showLogin('Signed out.');
-}
+};
 
-/* ---------- system ---------- */
+/* ---------- system status ---------- */
 async function loadSystem(){
   SYS = await api('/api/system');
-  const modeColour = {DEMO:'var(--amber)', UNVALIDATED:'var(--refer)', MODEL:'var(--routine)'}[SYS.mode];
-  $('#meta').innerHTML = `
-    <div><span class="eyebrow">Mode</span><span class="v" style="color:${modeColour}">${esc(SYS.mode)}</span></div>
-    <div><span class="eyebrow">Model</span><span class="v">${esc(SYS.model_version)}</span></div>
-    <div><span class="eyebrow">Operating point</span><span class="v">${SYS.operating_point?.toFixed(3) ?? '—'}</span></div>
-    <div><span class="eyebrow">Preprocessing</span><span class="v">${esc(SYS.preprocess_fingerprint)}</span></div>`;
-  $('#who').innerHTML = `
-    <span class="num" style="font-size:12.5px;color:var(--muted)">${esc(ME.username)} · ${esc(ME.role)}</span>
-    ${clinical() ? '<button class="ghost" id="monBtn">Monitoring</button>' : ''}
-    <button class="ghost" id="outBtn">Sign out</button>`;
-  $('#outBtn').onclick = signOut;
-  if ($('#monBtn')) $('#monBtn').onclick = showMonitoring;
-
-  const scope = $('#scope');
-  scope.classList.toggle('unvalidated', SYS.mode === 'UNVALIDATED');
-  if (SYS.mode === 'DEMO'){
-    scope.innerHTML = `<b>Demo mode — outputs are not from a trained model</b>
-      <span>${esc(SYS.note)} Research software, not a medical device.</span>`;
-  } else if (SYS.mode === 'UNVALIDATED'){
-    scope.innerHTML = `<b>Unvalidated model — outputs must not inform any decision</b>
-      <span>${esc(SYS.note)}</span>`;
+  const label = {MODEL:'Validated model', UNVALIDATED:'Unvalidated model', DEMO:'Demo mode'}[SYS.mode];
+  const m = $('#mode'); m.textContent = label; m.className = 'pill ' + SYS.mode; m.hidden = false;
+  const strip = $('#strip'); strip.className = SYS.mode;
+  if (SYS.mode !== 'MODEL'){
+    const head = SYS.mode === 'DEMO'
+      ? 'Demo mode — results come from a placeholder, not a trained model.'
+      : 'Unvalidated model — results must not inform patient care.';
+    strip.innerHTML = `<b>${head}</b><span>Research software, not a medical device.</span>
+      <button class="link" id="why" aria-expanded="false">Why?</button>
+      <div id="stripNote">${esc(SYS.note)}</div>`;
+    $('#why').onclick = () => {
+      const on = $('#stripNote').classList.toggle('on');
+      $('#why').setAttribute('aria-expanded', on);
+    };
   }
+  $('#who').textContent = `${ME.username} · ${ME.role}`;
+  $('#addBtn').hidden = false; $('#outBtn').hidden = false; $('#monBtn').hidden = !clinical();
 }
 
-/* ---------- upload ---------- */
-const drop = $('#drop');
-const dropMsg = t => drop.querySelector('strong').textContent = t;
-['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
-  ev.preventDefault(); drop.classList.add('hot');
-}));
-['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
-  ev.preventDefault(); drop.classList.remove('hot');
-}));
-drop.addEventListener('drop', ev => upload([...ev.dataTransfer.files]));
+/* ---------- worklist ---------- */
+async function refresh(){
+  VISITS = (await api('/api/visits')).visits;
+  renderList();
+}
+function filtered(){
+  const q = $('#find').value.trim().toLowerCase();
+  return VISITS.filter(v =>
+    (TAB === 'all' || (TAB === 'todo') === v.needs_review) &&
+    (!q || String(v.patient_id || '').toLowerCase().includes(q)));
+}
+function renderList(){
+  $('#nTodo').textContent = `(${VISITS.filter(v => v.needs_review).length})`;
+  $('#nDone').textContent = `(${VISITS.filter(v => !v.needs_review).length})`;
+  const rows = filtered();
+  if (!rows.length){
+    $('#list').innerHTML = `<div class="empty-list">${
+      TAB === 'todo' && VISITS.length ? 'Nothing left to review.' :
+      $('#find').value ? 'No patient matches.' : 'No patients yet. Use “Add images”.'}</div>`;
+    return;
+  }
+  $('#list').innerHTML = rows.map(v => {
+    const dot = side => {
+      const e = v.eyes[side];
+      return `<span class="eyedot ${e ? e.outcome : 'none'}" title="${side} eye: ${e ? SHORT[e.outcome] : 'no image'}">
+        ${side === 'right' ? 'R' : 'L'}<i></i></span>`;
+    };
+    return `<button class="visit ${v.decision} ${v.encounter_id === CURRENT ? 'on' : ''}" data-id="${esc(v.encounter_id)}">
+      <div class="row1"><span class="pid">${esc(v.patient_id || 'Unknown patient')}</span>
+        <span class="tag ${v.decision}">${SHORT[v.decision]}</span></div>
+      <div class="row2">${dot('right')}${dot('left')}<span>${day(v.last_utc)}</span>
+        <span class="${v.needs_review ? 'pending' : ''}">${v.needs_review
+          ? `${v.pending_images} image${v.pending_images > 1 ? 's' : ''} to review` : '✓ reviewed'}</span></div>
+    </button>`;
+  }).join('');
+  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => openVisit(b.dataset.id));
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  TAB = b.dataset.tab;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  renderList();
+});
+$('#find').oninput = renderList;
+
+/* ---------- visit view ---------- */
+function blank(){
+  $('#stage').innerHTML = `<div class="blank"><h2>No patient selected</h2>
+    <p>Choose a patient from the list, or add images. Patients needing a decision are listed first.</p></div>`;
+}
+
+async function openVisit(id){
+  CURRENT = id; PICK = {}; SHOWN = {};
+  renderList();
+  const v = await api('/api/encounters/' + encodeURIComponent(id));
+  // Full detail (quality, reasons, verdict history) for each image.
+  const details = await Promise.all(v.cases.map(c => api('/api/cases/' + encodeURIComponent(c.case_id))));
+  DETAIL = {visit: v, cases: Object.fromEntries(details.map(d => [d.case_id, d]))};
+  for (const [side] of EYES){
+    const first = v.cases.find(c => c.eye === side);
+    if (first) SHOWN[side] = first.case_id;
+  }
+  renderVisit();
+}
+
+function modelLine(c){
+  const p = c.payload, q = p.quality || {};
+  if (!c.gradable){
+    const why = (q.reasons || []).map(plainReason).join('; ') || 'image quality';
+    return `<div class="warn"><b style="color:inherit">Image not gradable</b> — ${esc(why)}.
+      Recapture or examine. This is not a negative result.</div>`;
+  }
+  const prob = c.probability;
+  let head;
+  if (c.decision === 'MANUAL_REVIEW') head = `<b class="MANUAL_REVIEW">Borderline</b> — the model defers to you`;
+  else if (c.decision === 'REFER') head = `<b class="REFER">Suggests refer</b>`;
+  else head = `<b class="ROUTINE">Suggests routine</b>`;
+  const grade = c.payload.grade_label ? ` · Indicative grade: ${esc(c.payload.grade_label)}` : '';
+  return `<div class="result">Model: ${head}
+    <div class="sub">${pct(prob)} estimated chance of referable diabetic retinopathy${grade}</div></div>`;
+}
+
+function axis(c){
+  const op = c.operating_point ?? 0.5, lo = c.abstain_low, hi = c.abstain_high, p = c.probability;
+  const band = lo != null && hi != null;
+  const L = (band ? lo : op) * 100, R = (band ? hi : op) * 100;
+  return `<div class="axiswrap"><div class="track"><div class="zone r" style="width:${L}%"></div>
+    <div class="zone a" style="width:${R-L}%"></div><div class="zone f" style="width:${100-R}%"></div></div>
+    <div class="opline" style="left:${op*100}%"></div>
+    ${p != null ? `<div class="marker" data-v="${pct(p)}" style="left:${p*100}%"></div>` : ''}</div>
+    <div class="axlabels"><span>routine</span><span>${band ? 'grey zone: human decides' : ''}</span><span>refer</span></div>`;
+}
+
+function technical(c){
+  const q = c.payload.quality || {};
+  const trail = c.verdicts.length ? c.verdicts.map(v =>
+    `<tr><td>${esc(day(v.created_utc))} ${esc(time(v.created_utc))}</td><td>${esc(SHORT[v.verdict] || v.verdict)} · ${esc(v.grader || '—')}${v.note ? ' · ' + esc(v.note) : ''}</td></tr>`).join('')
+    : '<tr><td>Grader decisions</td><td>none yet</td></tr>';
+  return `<details><summary>Technical details</summary>
+    ${c.probability != null ? axis(c) : ''}
+    <table class="kv">
+      <tr><td>Image file</td><td>${esc(c.filename)}</td></tr>
+      <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
+      <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
+      <tr><td>Looks like a retina</td><td>${q.is_fundus == null ? '—' : q.is_fundus ? 'yes' : 'no'}</td></tr>
+      <tr><td>Model</td><td>${esc(c.model_version)}${c.validated ? '' : ' (not validated)'}</td></tr>
+      <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
+      <tr><td>Camera / uploaded by</td><td>${esc(c.device || '—')} / ${esc(c.uploaded_by || '—')}</td></tr>
+      <tr><td>Recorded</td><td>${esc(c.created_utc)}</td></tr>
+      <tr><td>Image hash</td><td>${esc(c.image_sha256)}</td></tr>
+      ${trail}
+    </table></details>`;
+}
+
+function eyeCard(side, label){
+  const v = DETAIL.visit;
+  const cases = v.cases.filter(c => c.eye === side);
+  if (!cases.length){
+    return `<div class="eye"><div class="top"><h4>${label}</h4><span class="tag INCOMPLETE">No image</span></div>
+      <div class="missing">No image for this eye in this visit.<br>Use “Add images” to add one.</div></div>`;
+  }
+  const e = v.eyes[side];
+  const c = DETAIL.cases[SHOWN[side]];
+  const latest = c.verdicts[c.verdicts.length - 1];
+  // The model's suggestion for this eye: its most severe image.
+  const sev = {ROUTINE:0, MANUAL_REVIEW:1, REFER:2};
+  const modelEye = cases.reduce((a, x) => sev[x.decision] > sev[a] ? x.decision : a, 'ROUTINE');
+  const suggest = modelEye === 'MANUAL_REVIEW' ? null : modelEye;
+  const allGraded = cases.every(x => x.latest_verdict);
+  const thumbs = cases.length > 1 ? `<div class="thumbs">${cases.map((x, i) =>
+    `<button class="${x.case_id === c.case_id ? 'on' : ''} ${x.decision}" data-side="${side}" data-case="${esc(x.case_id)}">
+      <i></i>Image ${i + 1}</button>`).join('')}</div>` : '';
+  const camBtn = !SYS.gradcam_available || !clinical() ? '' : !c.gradable ? '' :
+    `<button class="btn small" data-cam="${esc(c.case_id)}">${CAM[c.case_id]?.on ? 'Hide' : 'Show'} attention map</button>`;
+  const cam = CAM[c.case_id];
+  const camNote = cam?.error ? `<p class="camnote alert">${esc(cam.error)}</p>` :
+    cam?.warn ? `<p class="camnote alert">Attention sits on the image border — possible shortcut. Review carefully.</p>` :
+    cam?.on ? `<p class="camnote">Shows where the model looked, not why. A debugging aid, not a diagnosis.</p>` : '';
+  const decide = !clinical() ? '' : `<div class="decide"><span class="eyebrow">Your decision · ${label.split(' ')[0].toLowerCase()} eye</span>
+    <div class="vbtns">${['REFER','ROUTINE','UNGRADABLE'].map(k => {
+      const isSug = suggest === k && !PICK[side];
+      return `<button class="vb ${k} ${PICK[side] === k ? 'sel' : ''}" data-side="${side}" data-v="${k}"
+        aria-pressed="${PICK[side] === k}" aria-label="${SHORT[k]}${suggest === k ? ' (model suggestion)' : ''}">
+        ${SHORT[k]}${isSug ? '<span class="sug" aria-hidden="true">model</span>' : ''}</button>`;
+    }).join('')}</div>
+    ${allGraded ? `<div class="graded">Graded <b>${esc(SHORT[latest?.verdict] || '')}</b> by ${esc(latest?.grader || '—')} · ${esc(day(latest?.created_utc))}. Choose again to revise.</div>`
+                : `<div class="graded">${cases.length > 1 ? `Applies to all ${cases.length} images of this eye.` : '&nbsp;'}</div>`}
+  </div>`;
+  return `<div class="eye">
+    <div class="top"><h4>${label}</h4>${e ? `<span class="tag ${e.outcome}">${SHORT[e.outcome]}</span>` : ''}
+      <span class="src">${e?.source === 'grader' ? 'graded' : 'model only'}</span></div>
+    ${thumbs}
+    <div class="imgbox"><img src="/api/cases/${encodeURIComponent(c.case_id)}/image" alt="${label} fundus photograph">
+      <img class="cam ${cam?.on ? 'on' : ''}" ${cam?.url ? `src="${cam.url}"` : ''} alt="Attention map"></div>
+    ${modelLine(c)}
+    ${camBtn ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${camBtn}${camNote}</div>` : ''}
+    ${decide}
+    ${technical(c)}
+  </div>`;
+}
+
+function renderVisit(){
+  const v = DETAIL.visit;
+  const first = Object.values(DETAIL.cases).map(c => c.created_utc).sort()[0];
+  const nImg = v.cases.length;
+  const changed = Object.keys(PICK).length;
+  $('#stage').innerHTML = `<div class="wrap">
+    <div class="vhead"><h2>${esc(v.patient_id || 'Unknown patient')}</h2>
+      <span class="meta">Visit ${esc(day(first))} · ${nImg} image${nImg > 1 ? 's' : ''}</span>
+      <span class="spacer"></span>
+      <span class="tag ${v.final ? 'ROUTINE' : 'INCOMPLETE'}">${v.final ? 'Final — graded by a human' : 'Preliminary'}</span>
+      ${clinical() ? '<button class="btn small" id="fhirBtn">Download report (FHIR)</button>' : ''}</div>
+    <div class="outcome ${v.decision}"><h3>${HEADLINE[v.decision]}</h3>
+      <p>${v.reasons.map(esc).join(' ')}</p></div>
+    <div class="eyes">${EYES.map(([s, l]) => eyeCard(s, l)).join('')}</div>
+    ${clinical() ? `<div class="actions">
+      <input type="text" id="note" placeholder="Note for this visit (optional)" maxlength="2000">
+      <button class="btn" id="nextBtn">Next patient <kbd>J</kbd></button>
+      <button class="btn primary" id="saveBtn" ${changed ? '' : 'disabled'}>Save${changed ? ` ${changed} decision${changed > 1 ? 's' : ''}` : ''} &amp; next</button>
+      <span class="saved" id="savedMsg" role="status"></span></div>` : ''}
+  </div>`;
+  wireVisit();
+}
+
+function wireVisit(){
+  const st = $('#stage');
+  st.querySelectorAll('.thumbs button').forEach(b => b.onclick = () => { SHOWN[b.dataset.side] = b.dataset.case; renderVisit(); });
+  st.querySelectorAll('.vb').forEach(b => b.onclick = () => {
+    const side = b.dataset.side;
+    PICK[side] = PICK[side] === b.dataset.v ? undefined : b.dataset.v;
+    if (!PICK[side]) delete PICK[side];
+    const note = $('#note')?.value; renderVisit(); if (note) $('#note').value = note;
+  });
+  st.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => toggleCam(b.dataset.cam));
+  if ($('#fhirBtn')) $('#fhirBtn').onclick = downloadFhir;
+  if ($('#nextBtn')) $('#nextBtn').onclick = () => step(1);
+  if ($('#saveBtn')) $('#saveBtn').onclick = save;
+}
+
+async function toggleCam(id){
+  const cur = CAM[id];
+  if (cur?.url){ cur.on = !cur.on; renderVisit(); return; }
+  if (cur?.error) return;
+  const btn = $(`[data-cam="${CSS.escape(id)}"]`);
+  if (btn){ btn.disabled = true; btn.textContent = 'Computing…'; }
+  try {
+    const r = await fetch(`/api/cases/${encodeURIComponent(id)}/gradcam`, {credentials:'same-origin'});
+    if (!r.ok){
+      const e = await r.json().catch(() => ({}));
+      CAM[id] = {error: e.detail || 'Attention map unavailable.'};
+    } else {
+      CAM[id] = {url: URL.createObjectURL(await r.blob()), on: true,
+                 warn: r.headers.get('X-Border-Warning') === '1'};
+    }
+  } catch { CAM[id] = {error: 'Could not reach the server.'}; }
+  renderVisit();
+}
+
+async function save(){
+  const btn = $('#saveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  const note = $('#note').value.trim() || null;
+  try {
+    for (const [side, verdict] of Object.entries(PICK)){
+      for (const c of DETAIL.visit.cases.filter(x => x.eye === side)){
+        await api(`/api/cases/${encodeURIComponent(c.case_id)}/verdict`, {method:'POST',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({verdict, note})});
+      }
+    }
+  } catch(e){
+    btn.disabled = false; btn.textContent = 'Save & next';
+    $('#savedMsg').textContent = e.detail || 'Could not save.'; $('#savedMsg').style.color = 'var(--refer)';
+    return;
+  }
+  const done = CURRENT;
+  await refresh();
+  // Next patient still to review, else stay on this one (now reviewed).
+  const next = VISITS.find(v => v.needs_review && v.encounter_id !== done);
+  if (next){ TAB = 'todo'; syncTabs(); openVisit(next.encounter_id); }
+  else { await openVisit(done); $('#savedMsg').textContent = 'Saved. Nothing left to review.'; }
+}
+
+function syncTabs(){
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.tab === TAB));
+}
+
+function step(d){
+  const rows = filtered();
+  if (!rows.length) return;
+  const i = rows.findIndex(v => v.encounter_id === CURRENT);
+  const n = rows[Math.min(rows.length - 1, Math.max(0, i < 0 ? 0 : i + d))];
+  if (n && n.encounter_id !== CURRENT) openVisit(n.encounter_id);
+}
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ($('.overlay.on')) return;
+  if (e.key === 'j' || e.key === 'J'){ e.preventDefault(); step(1); }
+  if (e.key === 'k' || e.key === 'K'){ e.preventDefault(); step(-1); }
+});
+
+async function downloadFhir(){
+  try {
+    const rep = await api('/api/encounters/' + encodeURIComponent(CURRENT) + '/fhir');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(rep, null, 2)], {type:'application/fhir+json'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = `dr-screening-${CURRENT.replace(/[^\w.-]+/g, '_')}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch(e){ alert(e.detail || 'Could not build the report.'); }
+}
+
+/* ---------- add images ---------- */
+const dlg = $('#addDlg'), drop = $('#drop');
+$('#addBtn').onclick = () => {
+  dlg.classList.add('on'); $('#addErr').textContent = '';
+  if (DETAIL?.visit?.patient_id && !$('#pid').value) $('#pid').value = DETAIL.visit.patient_id;
+  setTimeout(() => $('#pid').focus(), 0);
+};
+$('#addClose').onclick = () => dlg.classList.remove('on');
+dlg.addEventListener('keydown', e => { if (e.key === 'Escape') dlg.classList.remove('on'); });
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', e => upload([...e.dataTransfer.files]));
 $('#pick').onclick = () => $('#file').click();
 $('#file').onchange = e => { upload([...e.target.files]); e.target.value = ''; };
-
 const isDicom = f => /\.dcm$/i.test(f.name) || f.type === 'application/dicom';
 
 async function upload(files){
@@ -394,340 +606,66 @@ async function upload(files){
   if (!usable.length) return;
   const pid = $('#pid').value.trim(), eye = $('#eye').value;
   if (usable.some(f => !isDicom(f)) && (!pid || !eye)){
-    dropMsg('Enter the patient ID and eye first');
+    $('#addErr').textContent = 'Enter the patient ID and choose the eye first.';
     (pid ? $('#eye') : $('#pid')).focus();
-    setTimeout(() => dropMsg('Drop fundus images here'), 2600);
     return;
   }
-  dropMsg(`Reading ${usable.length} image${usable.length>1?'s':''}…`);
-  let first = null;
+  $('#addErr').textContent = '';
+  let enc = null, n = 0;
   for (const f of usable){
+    $('#dropMsg').textContent = `Reading ${++n} of ${usable.length}…`;
     const fd = new FormData();
     fd.append('file', f);
-    for (const [k, v] of [['patient_id', pid], ['eye', eye],
-                          ['encounter_id', $('#enc').value.trim()], ['device', $('#dev').value.trim()]])
+    for (const [k, v] of [['patient_id', pid], ['eye', eye], ['encounter_id', $('#enc').value.trim()], ['device', $('#dev').value.trim()]])
       if (v) fd.append(k, v);
-    try {
-      const r = await api('/api/predict', {method:'POST', body:fd});
-      first = first || r.case_id;
-    } catch(e){
-      dropMsg(e.detail || 'Could not read that file');
-      await new Promise(r => setTimeout(r, 2600));
-    }
+    try { enc = (await api('/api/predict', {method:'POST', body:fd})).encounter_id || enc; }
+    catch(e){ $('#addErr').textContent = `${f.name}: ${e.detail || 'could not read the file'}`; }
   }
-  dropMsg('Drop fundus images here');
+  $('#dropMsg').textContent = 'Drop images here, or';
   await refresh();
-  if (first) select(first);
-}
-
-/* ---------- worklist ---------- */
-async function refresh(){
-  CASES = (await api('/api/cases')).cases;
-  $('#count').textContent = CASES.length ? `${CASES.length} case${CASES.length>1?'s':''}` : '';
-  $('#list').innerHTML = CASES.map(c => `
-    <div class="case ${c.decision} ${c.case_id===CURRENT?'on':''}" data-id="${esc(c.case_id)}" tabindex="0">
-      <div class="bar"></div>
-      <div>
-        <div class="fn">${c.patient_id ? esc(c.patient_id) + ' · ' + esc(c.eye || 'eye?') : esc(c.filename || c.case_id)}</div>
-        <div class="st">${LABEL[c.decision]}${c.latest_verdict ? ' · graded ' + LABEL[c.latest_verdict] : ''}${c.patient_id && c.filename ? ' · ' + esc(c.filename) : ''}</div>
-      </div>
-      <div class="p">${pct(c.probability)}</div>
-    </div>`).join('');
-  $('#list').querySelectorAll('.case').forEach(el => {
-    el.onclick = () => select(el.dataset.id);
-    el.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); select(el.dataset.id); } };
-  });
-
-  const s = await api('/api/summary');
-  $('#summary').innerHTML = `
-    <div><span class="eyebrow">Refer</span><span class="v" style="color:var(--refer)">${s.refer}</span></div>
-    <div><span class="eyebrow">Routine</span><span class="v" style="color:var(--routine)">${s.routine}</span></div>
-    <div><span class="eyebrow">Human review</span><span class="v" style="color:var(--review)">${s.manual_review}</span></div>
-    <div><span class="eyebrow">Agreement</span><span class="v">${s.agreement_rate==null?'—':pct(s.agreement_rate)}</span></div>`;
-}
-
-/* ---------- SIGNATURE: decision axis ---------- */
-function axis(p){
-  const op = SYS.operating_point ?? 0.5;
-  const lo = SYS.abstain_low, hi = SYS.abstain_high;
-  const band = (lo!=null && hi!=null);
-  const L = band ? lo*100 : op*100;
-  const R = band ? hi*100 : op*100;
-  const has = p != null;
-  return `
-  <div class="axis">
-    <div class="axiswrap">
-      <div class="track">
-        <div class="zone r" style="width:${L}%"></div>
-        <div class="zone a" style="width:${R-L}%"></div>
-        <div class="zone f" style="width:${100-R}%"></div>
-      </div>
-      <div class="opline" style="left:${op*100}%" data-l="operating point ${op.toFixed(2)}"></div>
-      ${has ? `<div class="marker" data-v="${(p*100).toFixed(0)}%" style="left:${p*100}%"></div>` : ''}
-    </div>
-    <div class="axlabels"><span>0.0 &nbsp;no referable DR</span><span>referable DR&nbsp; 1.0</span></div>
-    <div class="legend">
-      <span><i style="background:rgba(76,176,138,.55)"></i>Routine</span>
-      ${band ? `<span><i style="background:rgba(123,160,217,.45)"></i>Abstention band — sent to a human</span>` : ''}
-      <span><i style="background:rgba(228,105,92,.55)"></i>Refer</span>
-    </div>
-  </div>`;
-}
-
-/* ---------- visit (patient-level) ---------- */
-async function visitCard(c){
-  if (!c.encounter_id) return '';
-  let e;
-  try { e = await api('/api/encounters/' + encodeURIComponent(c.encounter_id)); }
-  catch { return ''; }
-  const eyeBox = side => {
-    const d = e.eyes[side];
-    return `<div class="eye"><span class="eyebrow">${side} eye</span><br>
-      ${d ? `<span class="tag ${d.outcome}">${LABEL[d.outcome] || esc(d.outcome)}</span>
-             <div class="src">${d.source === 'grader' ? 'grader verdict' : 'model only'}</div>`
-          : '<span class="src">not imaged</span>'}</div>`;
-  };
-  return `<div class="card">
-    <h3>Visit — patient-level decision</h3>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span class="tag ${e.decision}">${LABEL[e.decision] || esc(e.decision)}</span>
-      <span class="num" style="color:var(--faint);font-size:12px">${e.final ? 'final — every eye graded by a human' : 'preliminary'}</span>
-    </div>
-    <div class="eyes">${eyeBox('right')}${eyeBox('left')}</div>
-    <ul class="reasons">${e.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
-    <table class="kv" style="margin-top:10px">
-      <tr><td>Patient</td><td>${esc(e.patient_id)}</td></tr>
-      <tr><td>Visit</td><td>${esc(e.encounter_id)}</td></tr>
-    </table>
-    ${clinical() ? `<button class="ghost" id="fhirBtn" style="margin-top:12px">Download FHIR report</button>` : ''}
-  </div>`;
-}
-
-async function downloadFhir(encounterId){
-  const rep = await api('/api/encounters/' + encodeURIComponent(encounterId) + '/fhir');
-  const url = URL.createObjectURL(new Blob([JSON.stringify(rep, null, 2)], {type:'application/fhir+json'}));
-  const a = document.createElement('a');
-  a.href = url; a.download = `dr-screening-${encounterId.replace(/[^\w.-]+/g,'_')}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/* ---------- case detail ---------- */
-async function select(id){
-  CURRENT = id; PICKED = null;
-  $('#list').querySelectorAll('.case').forEach(e => e.classList.toggle('on', e.dataset.id===id));
-  const c = await api('/api/cases/' + encodeURIComponent(id));
-  const p = c.payload, q = p.quality || {};
-  const visit = await visitCard(c);
-
-  $('#stage').innerHTML = `
-    <div class="top">
-      <h2>${c.patient_id ? esc(c.patient_id) + ' · ' + esc(c.eye || 'eye not recorded') : esc(c.filename || id)}</h2>
-      <span class="tag ${c.decision}">${LABEL[c.decision]}</span>
-      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">case ${esc(id)}</span>
-    </div>
-    <div class="grid">
-      <figure>
-        <div class="imgwrap">
-          <img id="baseImg" src="/api/cases/${encodeURIComponent(id)}/image" alt="Fundus photograph for case ${esc(id)}">
-          <img id="camImg" class="cam-layer" alt="Grad-CAM attention overlay">
-        </div>
-        <div class="figbar">
-          <button id="camBtn" class="cambtn">Show attention map</button>
-          <figcaption>${c.gradable ? 'Passed the gradability check' : 'Failed the gradability check'} · ${c.latency_ms.toFixed(0)} ms</figcaption>
-        </div>
-        <p id="camNote" class="camnote"></p>
-      </figure>
-      <div>
-        <div class="card">
-          <h3>Decision — this image</h3>
-          ${axis(c.probability)}
-          <ul class="reasons">${(p.reasons||[]).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
-        </div>
-
-        ${visit}
-
-        <div class="card">
-          <h3>Grader verdict</h3>
-          ${clinical() ? `
-          <div class="vbtns">
-            <button class="vb REFER"   data-v="REFER">Refer</button>
-            <button class="vb ROUTINE" data-v="ROUTINE">Routine</button>
-            <button class="vb MANUAL_REVIEW" data-v="UNGRADABLE">Ungradable</button>
-          </div>
-          <input type="text" id="vnote" placeholder="Note (optional)" autocomplete="off" maxlength="2000">
-          <button id="save" disabled>Record verdict as ${esc(ME.username)}</button>`
-          : `<p style="color:var(--faint);margin:0">Photographer accounts cannot record verdicts.</p>`}
-          ${c.verdicts.length ? `<h3 style="margin-top:17px">Audit trail</h3>
-            <div class="trail">${c.verdicts.map(v =>
-              `<div>${esc(v.created_utc)} · ${esc(LABEL[v.verdict]||v.verdict)} · ${esc(v.grader||'unattributed')}${v.agreed!=null ? (v.agreed?' · agreed':' · disagreed') : ''}${v.note ? ' · ' + esc(v.note) : ''}</div>`).join('')}</div>` : ''}
-        </div>
-
-        <div class="card">
-          <h3>Image quality</h3>
-          <table class="kv">
-            <tr><td>Gradable</td><td style="color:${c.gradable?'var(--routine)':'var(--review)'}">${c.gradable?'Yes':'No'}</td></tr>
-            <tr><td>Looks like a retina</td><td style="color:${q.is_fundus===false?'var(--review)':'inherit'}">${q.is_fundus==null?'—':(q.is_fundus?'Yes':'No')}</td></tr>
-            <tr><td>Quality decided by</td><td>${q.quality_source==='learned'?'Learned quality model':(q.quality_source==='classical'?'Classical checks':'—')}</td></tr>
-            ${q.p_ungradable!=null?`<tr><td>P(ungradable)</td><td>${q.p_ungradable.toFixed(2)} (threshold ${q.quality_threshold.toFixed(2)})</td></tr>`:''}
-            <tr><td>Field of view</td><td>${q.fov_fraction!=null?q.fov_fraction.toFixed(2):'—'}</td></tr>
-            <tr><td>Sharpness</td><td>${q.blur_var!=null?q.blur_var.toFixed(1):'—'}</td></tr>
-            <tr><td>Mean intensity</td><td>${q.mean_intensity!=null?q.mean_intensity.toFixed(1):'—'}</td></tr>
-          </table>
-        </div>
-
-        <div class="card">
-          <h3>Provenance</h3>
-          <table class="kv">
-            <tr><td>Model</td><td>${esc(c.model_version)}</td></tr>
-            <tr><td>Passed acceptance gate</td><td>${c.validated ? 'Yes' : 'No'}</td></tr>
-            <tr><td>Preprocessing</td><td>${esc(c.preprocess_fp)}</td></tr>
-            <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
-            <tr><td>Indicative ICDR grade</td><td>${c.grade ?? '—'}</td></tr>
-            <tr><td>Camera</td><td>${esc(c.device) || '—'}</td></tr>
-            <tr><td>Source</td><td>${esc(c.source_format) || '—'} · ${esc(c.filename) || '—'}</td></tr>
-            <tr><td>Uploaded by</td><td>${esc(c.uploaded_by) || '—'}</td></tr>
-            <tr><td>Recorded</td><td>${esc(c.created_utc)}</td></tr>
-            <tr><td>Image hash</td><td>${esc(c.image_sha256)}</td></tr>
-          </table>
-        </div>
-      </div>
-    </div>`;
-
-  if ($('#fhirBtn')) $('#fhirBtn').onclick = () => downloadFhir(c.encounter_id)
-    .catch(e => alert(e.detail || 'Could not build the FHIR report.'));
-  $('#stage').querySelectorAll('.vb').forEach(b => b.onclick = () => {
-    PICKED = b.dataset.v;
-    $('#stage').querySelectorAll('.vb').forEach(x => x.classList.toggle('sel', x===b));
-    $('#save').disabled = false;
-  });
-  if ($('#save')) $('#save').onclick = async () => {
-    if (!PICKED) return;
-    $('#save').disabled = true; $('#save').textContent = 'Recording…';
-    try {
-      await api(`/api/cases/${encodeURIComponent(id)}/verdict`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({verdict:PICKED, note:$('#vnote').value || null})
-      });
-    } catch(e){ alert(e.detail || 'Could not record the verdict.'); }
-    await refresh(); await select(id);
-  };
-
-  setupGradcam(id, c);
-}
-
-// Grad-CAM toggle. The overlay is fetched once, on first request, then cached
-// as an object URL for instant toggling. State is honest: disabled with a
-// reason when an explanation would be misleading, rather than a dead button.
-function setupGradcam(id, c){
-  const btn = $('#camBtn'), cam = $('#camImg'), note = $('#camNote');
-  if (!btn) return;
-  let url = null, on = false;
-
-  const disable = (msg, warn) => {
-    btn.disabled = true;
-    note.textContent = msg;
-    note.className = 'camnote' + (warn ? ' warn' : '');
-  };
-
-  if (SYS.mode === 'DEMO'){
-    disable('Attention maps need a trained model. None is loaded (demo mode).');
-    return;
-  }
-  if (!clinical()){
-    disable('Attention maps are available to graders.');
-    return;
-  }
-  if (!c.gradable){
-    disable('The image failed the quality gate, so the model never graded it — there is nothing to explain.');
-    return;
-  }
-
-  note.textContent = 'Grad-CAM shows which regions most affected the referable-DR score. It is a debugging aid, not a diagnosis — it marks where, never why.';
-
-  btn.onclick = async () => {
-    if (url){
-      on = !on;
-      cam.classList.toggle('on', on);
-      btn.classList.toggle('active', on);
-      btn.textContent = on ? 'Hide attention map' : 'Show attention map';
-      return;
-    }
-    btn.classList.add('loading'); btn.textContent = 'Computing…'; btn.disabled = true;
-    try {
-      const r = await fetch(`/api/cases/${encodeURIComponent(id)}/gradcam`, {credentials:'same-origin'});
-      if (!r.ok){
-        const e = await r.json().catch(() => ({detail:'Unavailable'}));
-        disable(e.detail || 'Attention map unavailable.', true);
-        btn.classList.remove('loading'); btn.textContent = 'Unavailable';
-        return;
-      }
-      const border = r.headers.get('X-Border-Mass');
-      if (r.headers.get('X-Border-Warning') === '1'){
-        note.className = 'camnote warn';
-        note.textContent = `Warning: attention concentrates on the image border (border mass ${border}). ` +
-          'That is the shortcut-learning signature — the model may be reacting to the camera, not the retina. ' +
-          'Do not rely on this score without careful review.';
-      } else if (border){
-        note.textContent += ` Border mass ${border} (no shortcut signal).`;
-      }
-      url = URL.createObjectURL(await r.blob());
-      cam.src = url; on = true;
-      cam.classList.add('on'); btn.classList.add('active');
-      btn.classList.remove('loading'); btn.disabled = false;
-      btn.textContent = 'Hide attention map';
-    } catch {
-      disable('Could not reach the server for the attention map.', true);
-      btn.classList.remove('loading'); btn.textContent = 'Show attention map';
-    }
-  };
+  if (enc && !$('#addErr').textContent){ dlg.classList.remove('on'); $('#eye').value = ''; openVisit(enc); }
 }
 
 /* ---------- monitoring ---------- */
-async function showMonitoring(){
-  CURRENT = null;
-  $('#list').querySelectorAll('.case').forEach(e => e.classList.remove('on'));
+$('#monBtn').onclick = async () => {
+  CURRENT = null; renderList();
   const m = await api('/api/monitoring');
-  const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td>
-    <td>${pct(r.refer_rate)}</td><td>${pct(r.manual_rate)}</td><td>${pct(r.ungradable_rate)}</td>
-    <td>${r.reviewed ?? 0}</td><td>${pct(r.agreement_rate)}</td></tr>`;
-  const head = first => `<tr><th>${first}</th><th>Cases</th><th>Refer</th><th>Human review</th>
-    <th>Ungradable</th><th>Reviewed</th><th>Agreement</th></tr>`;
-  $('#stage').innerHTML = `
-    <div class="top"><h2>Monitoring</h2>
-      <span class="num" style="margin-left:auto;color:var(--faint);font-size:12px">last ${m.window_days} days</span></div>
-    <div class="card">
-      <h3>Alerts</h3>
-      ${m.alerts.length ? m.alerts.map(a => `<div class="warnbox">${esc(a)}</div>`).join('')
-                        : '<div class="okbox">No drift signals in this window.</div>'}
-      <p style="color:var(--faint);font-size:12px;margin:6px 0 0">Offline metrics cannot see a new camera, photographer or population. Falling grader agreement and rising ungradable rates can.</p>
-    </div>
-    <div class="card"><h3>Recent vs baseline</h3><div class="tablewrap"><table class="grid">
-      ${head('Period')}${row(`Last ${m.recent_days} days`, m.recent)}${row('Earlier', m.baseline)}
-    </table></div></div>
-    <div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">
-      ${head('Week')}${m.weekly.map(w => row(w.week, w)).join('') || '<tr><td colspan="7">No cases yet.</td></tr>'}
-    </table></div></div>
-    <div class="card"><h3>By camera</h3><div class="tablewrap"><table class="grid">
-      ${head('Camera')}${m.by_device.map(d => row(d.device, d)).join('') || '<tr><td colspan="7">No cases yet.</td></tr>'}
-    </table></div></div>
+  const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td><td>${pct(r.refer_rate)}</td>
+    <td>${pct(r.manual_rate)}</td><td>${pct(r.ungradable_rate)}</td><td>${r.reviewed ?? 0}</td><td>${pct(r.agreement_rate)}</td></tr>`;
+  const head = first => `<tr><th>${first}</th><th>Images</th><th>Refer</th><th>Human review</th><th>Ungradable</th><th>Reviewed</th><th>Agreement</th></tr>`;
+  $('#stage').innerHTML = `<div class="wrap">
+    <div class="vhead"><h2>Monitoring</h2><span class="meta">last ${m.window_days} days</span></div>
+    <div class="card"><h3>Alerts</h3>
+      ${m.alerts.length ? m.alerts.map(a => `<div class="alertbox">${esc(a)}</div>`).join('') : '<div class="okbox">No warning signs in this period.</div>'}
+      <p style="color:var(--faint);font-size:13px;margin:6px 0 0">A new camera, photographer or patient group can make the model worse without any error. Falling agreement with graders and rising ungradable rates are the early signs.</p></div>
+    <div class="card"><h3>Recent vs earlier</h3><div class="tablewrap"><table class="grid">${head('Period')}
+      ${row(`Last ${m.recent_days} days`, m.recent)}${row('Earlier', m.baseline)}</table></div></div>
+    <div class="card"><h3>By camera</h3><div class="tablewrap"><table class="grid">${head('Camera')}
+      ${m.by_device.map(d => row(d.device, d)).join('') || '<tr><td colspan="7">No images yet.</td></tr>'}</table></div></div>
+    <div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">${head('Week')}
+      ${m.weekly.map(w => row(w.week, w)).join('') || '<tr><td colspan="7">No images yet.</td></tr>'}</table></div></div>
     ${ME.role === 'admin' ? `<div class="card"><h3>Audit log integrity</h3>
-      <button class="ghost" id="verifyBtn">Verify audit chain</button>
-      <div id="verifyOut" style="margin-top:12px"></div></div>` : ''}`;
+      <button class="btn small" id="verifyBtn">Verify audit log</button><div id="verifyOut" style="margin-top:10px"></div></div>` : ''}
+  </div>`;
   if ($('#verifyBtn')) $('#verifyBtn').onclick = async () => {
-    $('#verifyOut').textContent = 'Verifying…';
+    $('#verifyOut').textContent = 'Checking…';
     const v = await api('/api/audit/verify');
     $('#verifyOut').innerHTML = v.ok
-      ? `<div class="okbox">Intact: ${v.entries} entries, every link and record hash verified.<br><span class="num">head ${esc(v.head_hash)}</span></div>`
-      : `<div class="warnbox">Integrity check FAILED:<br>${v.problems.slice(0,20).map(esc).join('<br>')}</div>`;
+      ? `<div class="okbox">Intact: ${v.entries} entries verified.</div>`
+      : `<div class="alertbox">Integrity check FAILED:<br>${v.problems.slice(0, 20).map(esc).join('<br>')}</div>`;
   };
-}
+};
 
 /* ---------- boot ---------- */
 async function boot(){
-  try { ME = await api('/api/me'); } catch { return; }
+  // First visit: no session yet, so show sign-in without "session has ended".
+  const r = await fetch('/api/me', {credentials:'same-origin'});
+  if (r.status === 401){ showLogin(''); return; }
+  try { ME = await r.json(); } catch { return; }
   await loadSystem();
   await refresh();
+  const first = filtered()[0];
+  if (first) openVisit(first.encounter_id);
 }
 boot();
 </script>

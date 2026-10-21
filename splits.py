@@ -238,6 +238,50 @@ def verify_no_leakage(splits: dict[str, pd.DataFrame]) -> None:
                 )
  
  
+SITE_SPLIT_SEED = 20261019
+
+
+def split_site_calibration(df: pd.DataFrame, calibration_frac: float = 0.5,
+                           seed: int = SITE_SPLIT_SEED,
+                           verbose: bool = True) -> dict[str, pd.DataFrame]:
+    """
+    Split an external site's images into a CALIBRATION part and a held-out
+    EVALUATION part, stratified on grade.
+
+    Site calibration refits the calibrator, operating point and abstention
+    band on the calibration part only; every number reported for the site
+    comes from the evaluation part, which nothing is fitted or tuned on.
+
+    The split is by patient_id. For a set without patient identifiers (IDRiD
+    has none, so its patient_id is one per image) that means by image: if one
+    patient contributed both eyes, the two can land on opposite sides, which
+    flatters the evaluation half slightly. Say so wherever the result is used.
+
+    The seed is fixed and separate from DataConfig.random_seed, so changing
+    the internal split never reshuffles which external images were held out.
+    """
+    from sklearn.model_selection import train_test_split
+
+    if not 0.0 < calibration_frac < 1.0:
+        raise ValueError(f"calibration_frac must be in (0, 1), got {calibration_frac}")
+    patients = (df.groupby("patient_id")["grade"].max()
+                  .rename("worst_grade").reset_index())
+    min_count = max(2, int(np.ceil(1.0 / min(calibration_frac, 1.0 - calibration_frac))))
+    strat, _ = collapse_rare_strata(patients["worst_grade"], min_count)
+    cal_p, eval_p = train_test_split(
+        patients["patient_id"], test_size=1.0 - calibration_frac,
+        stratify=strat if strat.nunique() > 1 else None, random_state=seed,
+    )
+    parts = {"calibration": df[df["patient_id"].isin(set(cal_p))].reset_index(drop=True),
+             "evaluation": df[df["patient_id"].isin(set(eval_p))].reset_index(drop=True)}
+    verify_no_leakage(parts)
+    if verbose:
+        print("\n  Site split (calibration fitted on the first, metrics from the second):")
+        for k, s in parts.items():
+            print(f"    {k:<11} {len(s):>5} img  referable {100*s['referable'].mean():5.1f}%")
+    return parts
+
+
 # ---------------------------------------------------------------------------
 # Ordinal encoding
 # ---------------------------------------------------------------------------

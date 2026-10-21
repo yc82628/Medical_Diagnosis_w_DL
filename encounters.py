@@ -59,19 +59,25 @@ def combine(cases: list[dict]) -> dict:
 
     reasons = []
     outcomes = {e: d["outcome"] for e, d in eyes.items()}
+
+    def which(sides) -> str:
+        """'both eyes' / 'the right eye' -- read by clinicians, so plain English."""
+        sides = [s for s in EYES if s in sides]
+        return "both eyes" if len(sides) == 2 else f"the {sides[0]} eye"
+
     if REFER in outcomes.values():
         decision = REFER
-        reasons.append("Referable in: " + ", ".join(
-            e for e, o in outcomes.items() if o == REFER) + " eye.")
+        reasons.append("Referable diabetic retinopathy suspected in "
+                       + which([e for e, o in outcomes.items() if o == REFER]) + ".")
     elif MANUAL in outcomes.values():
         decision = MANUAL
-        reasons.append("Needs a human grader: " + ", ".join(
-            e for e, o in outcomes.items() if o == MANUAL) + " eye.")
+        reasons.append("A grader needs to decide on "
+                       + which([e for e, o in outcomes.items() if o == MANUAL]) + ".")
     elif set(outcomes) != set(EYES):
         decision = INCOMPLETE
         missing = [e for e in EYES if e not in outcomes]
-        reasons.append(f"No gradable result for the {', '.join(missing)} eye. "
-                       f"A visit is not complete until both eyes are screened.")
+        reasons.append(f"No result yet for {which(missing)}. A visit is complete "
+                       f"only when both eyes are screened.")
     else:
         decision = ROUTINE
         reasons.append("No referable diabetic retinopathy detected in either eye. "

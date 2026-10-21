@@ -208,8 +208,9 @@ class LearnedQualityGate:
         return {"gradable": ok, "p_ungradable": p, "threshold": self.threshold,
                 "model": self.version,
                 "reasons": [] if ok else [
+                    # No nested brackets: the web page strips "(...)" from reasons.
                     f"learned quality model judges the image too poor to grade "
-                    f"(P(ungradable) {p:.2f} >= threshold {self.threshold:.2f})"]}
+                    f"(probability ungradable {p:.2f}, threshold {self.threshold:.2f})"]}
 
 
 _default = {"loaded": False, "gate": None, "note": ""}

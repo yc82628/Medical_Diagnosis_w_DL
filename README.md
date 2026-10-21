@@ -38,7 +38,7 @@ python preprocessing.py --csv demo_data/labels.csv --images demo_data/images
 python check_setup.py
 
 # 4. Verify the harness BEFORE trusting a model. No GPU, no torch, no data needed.
-python -m pytest -q          # expect 94 passed
+python -m pytest -q          # expect 124 passed (fewer without torch: some skip)
 
 # 5. Train. Selects on specificity@sensitivity-90, not accuracy.
 python train.py
@@ -102,7 +102,9 @@ python prepare_idrid.py
 python prepare_deepdrid.py         # writes dr.env: DeepDRiD for training, IDRiD external
 python preprocessing.py --csv deepdrid/labels.csv --images deepdrid/repo/regular_fundus_images --cache deepdrid/cache_512 --filename-col filename
 python preprocessing.py --csv idrid/labels.csv --images "idrid/B. Disease Grading" --cache idrid/cache_512 --filename-col filename
-python train.py && python calibrate.py && python model_card.py
+# The current model: strong augmentation, 8-view TTA, site calibration on half of IDRiD
+DR_AUGMENT=strong DR_SEED=1 python train.py
+python calibrate.py --site-calibration --tta d8 && python model_card.py
 ```
 
 Cite both datasets in anything you publish: Liu et al., *Patterns* 3(6), 2022
@@ -111,17 +113,45 @@ are gitignored.
 
 ### Current results
 
-From `MODEL_CARD.md` (EfficientNet-B3, 512 px, trained on an RTX 5070 laptop GPU):
+From `MODEL_CARD.md` (EfficientNet-B3, 512 px, strong augmentation, 8-view
+test-time augmentation, trained on an RTX 5070 laptop GPU):
 
-| | Internal test (DeepDRiD) | External test (IDRiD) |
+| | Internal test (DeepDRiD) | External test (IDRiD, held-out half) |
 |---|---|---|
-| AUROC | 0.946 (0.910–0.973) | 0.875 (0.842–0.903) |
-| Sensitivity / specificity | 0.902 / 0.906 | 0.752 / 0.854 |
-| Calibration error | 0.033 | 0.148 |
+| AUROC | 0.976 (0.949–0.994) | 0.938 (0.908–0.963) |
+| Sensitivity / specificity | 0.902 / 0.953 | 0.882 / 0.854 |
+| Calibration error | 0.038 | 0.052 |
 
-The model **does not pass the acceptance gate**: at the new site it misses one
-referable eye in four, and its probabilities are miscalibrated. Internal
-numbers alone would have looked deployable. That gap is the main finding.
+The model **passes the acceptance gate, with site calibration** and with no
+floor lowered. The first model did not: at IDRiD it missed one referable eye in
+four (sensitivity 0.752, ECE 0.148). Two changes closed the gap:
+
+1. **Augmentation aimed at the camera shift.** IDRiD's camera crops the field of
+   view flat at top and bottom and its images are sharper; DeepDRiD's are full
+   circles. The `strong` profile in `dataset.py` simulates that (plus colour
+   balance, blur/sharpen and compression), keeping the background black. It
+   raised IDRiD AUROC from 0.888 to 0.951 on the development half.
+2. **Site calibration** (`calibrate.py --site-calibration`). IDRiD is split once,
+   by image and stratified on grade, into a calibration half and a held-out
+   evaluation half. The calibrator, operating point and abstention band are
+   refitted on the calibration half; every external number above comes from the
+   other half, read once after the configuration was frozen. Without this step
+   the same model scores sensitivity 0.839 and ECE 0.116 on that half, still
+   failing. **The model's ranking transfers to a new site; its probabilities and
+   threshold do not.** Each deploying site needs its own labelled calibration
+   sample, and a held-out one to confirm.
+
+Caveats, all on the card: one training run per configuration (no replicate
+seed); the 161 referable images in the held-out half give a sensitivity
+interval of 0.823–0.923, which does not exclude falling below the 0.85 floor;
+IDRiD has no patient ids, so the split is by image.
+
+Model selection never touched the internal test or the held-out half:
+`domain_experiments.py` scores candidates on DeepDRiD validation and the IDRiD
+calibration half only, and the card lists every result. Planned but not
+completed when the experiment budget was closed: EfficientNet-V2-S (stopped at
+epoch 3 of 30), ConvNeXt-Tiny, a second seed of the chosen configuration, a
+mild-augmentation control with the same seed, and 768 px input.
 
 ## Module map
 
@@ -134,7 +164,8 @@ numbers alone would have looked deployable. That gap is the main finding.
 | `model.py` | Ordinal CORAL head, backbone registry, skew-proof checkpointing |
 | `metrics.py` | Screening harness: spec@sens, patient-level bootstrap, calibration, abstention, subgroups |
 | `train.py` | Training loop; selects on the clinical metric |
-| `calibrate.py` | Fits calibration + freezes threshold on val, evaluates test once |
+| `calibrate.py` | Fits calibration + freezes threshold on val, evaluates test once; `--site-calibration` refits on half of the external site |
+| `domain_experiments.py` | Scores candidate models for the external gap without touching held-out data |
 | `gradcam.py` | Grad-CAM + randomised-weights sanity check + shortcut-learning stats |
 | `prepare_aptos.py` | Cleans APTOS: fixes extensions, removes duplicate images, adds patient_id |
 | `pick_test_images.py` | Curated known-ground-truth batch for testing |
@@ -177,10 +208,14 @@ and only fixes temperature-shaped miscalibration; in testing it made ECE *worse*
 both and keeps whichever wins on held-out validation. Note isotonic creates ties
 and can move AUROC slightly, so report AUROC on calibrated scores.
 
-**Mild colour augmentation.** Hue is signal here — haemorrhages are dark red,
-exudates yellow-white. Full rotation and both flips are safe (a fundus has no
+**Augmentation that moves everything except hue.** Hue is signal here —
+haemorrhages are dark red, exudates yellow-white — so the `strong` profile
+shifts hue by at most ±4°, while brightness, gamma, saturation, sharpness,
+compression and the field-of-view shape vary widely: those are what change
+between cameras. Full rotation and both flips are safe (a fundus has no
 canonical up); this would be wrong for chest X-ray, where a horizontal flip
-manufactures dextrocardia.
+manufactures dextrocardia. The same symmetry justifies 8-view test-time
+augmentation, which the serving predictor applies exactly as evaluated.
 
 **Ungradable ≠ negative.** The quality gate runs before the model. In a real
 programme 5–20% of captures are ungradable, and calling a blurred image

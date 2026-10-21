@@ -22,6 +22,8 @@ rather than on retinal tissue, you have found a real bug.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import cv2
 import numpy as np
 import torch
@@ -251,7 +253,10 @@ def explain(model, img_bgr: np.ndarray, pc: PreprocessConfig,
 
     return {
         "cam": cam,
-        "overlay": overlay(proc, cam),
+        # Drawn on the natural-colour crop, not on `proc`: the contrast-
+        # normalised image the model sees is grey-green and unfamiliar to a
+        # clinician. Same crop and size, so the map lines up exactly.
+        "overlay": overlay(preprocess_image(img_bgr, replace(pc, ben_graham=False)), cam),
         "processed": proc,
         "stats": cam_statistics(cam),
     }

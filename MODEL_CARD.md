@@ -1,6 +1,6 @@
 # Model Card — Diabetic Retinopathy Referral Triage
 
-*Generated 2026-10-19 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
+*Generated 2026-10-20 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
 
 > **RESEARCH SOFTWARE — NOT A MEDICAL DEVICE.** No regulatory clearance has been sought or obtained. Not for clinical use.
 
@@ -18,11 +18,12 @@ See `INTENDED_USE.md` for the full scope statement.
 
 ## Operating point
 
-- Decision threshold: **0.4000** on calibrated P(referable)
-- Chosen to achieve sensitivity ≥ **0.90** on the validation split, then frozen
-- Calibration method: **isotonic** (selected empirically on held-out validation)
+- Decision threshold: **0.6667** on calibrated P(referable)
+- Chosen to achieve sensitivity ≥ **0.90** on the **calibration half of the external site** (257 images), then frozen — see *Site calibration* below
+- Calibration method: **isotonic** (selected empirically on held-out site-calibration data)
+- Test-time augmentation: **d8** (the served predictor averages the same views)
 
-The threshold was selected on validation and never on test. Sensitivity is treated as a constraint rather than a quantity to trade off: a missed referable case risks irreversible sight loss, while a false positive costs one appointment.
+The threshold was fitted on data that every reported number excludes. Sensitivity is treated as a constraint rather than a quantity to trade off: a missed referable case risks irreversible sight loss, while a false positive costs one appointment.
 
 ## Performance — internal test set
 
@@ -30,13 +31,13 @@ The threshold was selected on validation and never on test. Sensitivity is treat
 |---|---|
 | Cases | 294 |
 | Referable prevalence | 0.418 |
-| AUROC | 0.946 (95% CI 0.910–0.973) |
+| AUROC | 0.976 (95% CI 0.949–0.994) |
 | Sensitivity | 0.902 |
-| Specificity | 0.906 |
-| Specificity @ sensitivity 0.90 | 0.906 (95% CI 0.609–0.951) |
-| PPV / NPV | 0.874 / 0.928 |
-| Expected calibration error | 0.0334 |
-| Quadratic weighted kappa (grade 0–4) | 0.732 |
+| Specificity | 0.953 |
+| Specificity @ sensitivity 0.90 | 0.953 (95% CI 0.813–0.984) |
+| PPV / NPV | 0.933 / 0.931 |
+| Expected calibration error | 0.0382 |
+| Quadratic weighted kappa (grade 0–4) | 0.763 |
 | Referable cases missed | **12** |
 
 Confidence intervals bootstrap **patients**, not images. Resampling images from a dataset where patients contribute two eyes treats correlated observations as independent and produces intervals that are too narrow.
@@ -49,29 +50,53 @@ Evaluated on a **different data source** — different camera and population fro
 
 | Metric | Internal | External |
 |---|---|---|
-| AUROC | 0.946 (95% CI 0.910–0.973) | 0.875 (95% CI 0.842–0.903) |
-| Sensitivity | 0.902 | 0.752 |
-| Specificity | 0.906 | 0.854 |
-| PPV / NPV | 0.874 / 0.928 | 0.896 / 0.672 |
-| Expected calibration error | 0.0334 | 0.1478 |
-| Quadratic weighted kappa | 0.732 | 0.589 |
-| Cases / referable prevalence | 294 / 0.418 | 514 / 0.626 |
-| Missed referable | 12 | 80 |
+| AUROC | 0.976 (95% CI 0.949–0.994) | 0.938 (95% CI 0.908–0.963) |
+| Sensitivity | 0.902 | 0.882 |
+| Specificity | 0.953 | 0.854 |
+| PPV / NPV | 0.933 / 0.931 | 0.910 / 0.812 |
+| Expected calibration error | 0.0382 | 0.0522 |
+| Quadratic weighted kappa | 0.763 | 0.664 |
+| Cases / referable prevalence | 294 / 0.418 | 257 / 0.626 |
+| Missed referable | 12 | 19 |
 
-Same frozen operating point and calibration on both: nothing was refitted on the external set.
+Internal: the source profile (calibration and operating point fitted on DeepDRiD validation). External: the **site profile**, measured on the 257 held-out images of the external set that no calibration, threshold, band or model choice was fitted on.
 
-AUROC change internal → external: **-0.071**.
+AUROC change internal → external: **-0.038**.
 
 **The external figures are the ones to rely on.** Internal test performance on a random split of a single source systematically overstates what happens at a new site.
 
+### Site calibration
+
+The external set was split once, by image and stratified on grade (seed 20261019), into a **calibration half** (257 images) and an **evaluation half** (257 images). The calibrator, operating point and abstention band served for this site were refitted on the calibration half only. The evaluation half was read once, after the configuration was frozen; model selection used DeepDRiD validation and the calibration half (see *Domain-shift experiments*).
+
+| Same held-out evaluation half | Sensitivity | Specificity | ECE |
+|---|---|---|---|
+| Source profile (no site step) | 0.839 | 0.896 | 0.1162 |
+| **Site profile (served)** | 0.882 | 0.854 | 0.0522 |
+
+What this means for deployment:
+
+- **The model is not plug-and-play at a new site.** Its ranking of cases transfers; its probabilities and threshold do not. Every new site needs its own labelled calibration sample, graded to the reference standard, before results are used — and a held-out sample to confirm, as here.
+- The site profile is specific to this site. On the internal test it gives sensitivity 0.959, specificity 0.901, ECE 0.0708 (reported, not gated); the internal-test row above uses the source profile.
+- IDRiD has no patient ids, so the split is by image: if one patient contributed both eyes, they may sit on opposite halves, which flatters the evaluation half slightly.
+- The evaluation half is small: 161 referable images, so its sensitivity has a 95% interval of 0.823–0.923 (Wilson). The point estimate clears the gate; the interval does not rule out a true sensitivity below the 0.85 floor. Confirm on a larger sample from the deploying site before any use.
+
+## Domain-shift experiments
+
+Every configuration tried to close the external gap, failures included (`domain_experiments.py`). Scored on DeepDRiD validation and the external **calibration half** only — never on the internal test or the external evaluation half. *src cal*: calibrator and threshold from DeepDRiD validation, applied unchanged. *site cal*: refitted on the site, estimated by 2-fold cross-fitting inside the calibration half (mean ± sd over 5 shuffles). Each configuration was trained once, with no replicate run, so differences of about 0.02 AUROC or less should not be read as real.
+
+| Experiment | TTA | Val AUROC | Val spec@sens90 | Site AUROC | Sens (src cal) | ECE (src cal) | Sens (site cal) | Spec (site cal) | ECE (site cal) |
+|---|---|---|---|---|---|---|---|---|---|
+| E0 baseline (B3 512, mild aug) | none | 0.942 | 0.886 | 0.888 | 0.789 | 0.132 | 0.906 ± 0.008 | 0.575 | 0.066 ± 0.023 |
+| E0 baseline + TTA | d8 | 0.954 | 0.905 | 0.914 | 0.826 | 0.127 | 0.907 ± 0.009 | 0.638 | 0.069 ± 0.010 |
+| E1 B3 512, strong aug | none | 0.960 | 0.924 | 0.951 | 0.845 | 0.091 | 0.919 ± 0.006 | 0.825 | 0.056 ± 0.015 |
+| E1 B3 512, strong aug | d8 | 0.964 | 0.918 | 0.959 | 0.851 | 0.093 | 0.918 ± 0.010 | 0.831 | 0.048 ± 0.015 |
+
+Configurations started or planned but not completed have no result and are not in the table; `README.md` (*Current results*) lists them.
+
 ## Acceptance gate
 
-**NOT PASSED.** The service will not load this model; it runs in labelled DEMO mode instead. Failed criteria:
-
-- external test: sensitivity 0.752 (required >= 0.85)
-- external test: ECE 0.148 (required <= 0.1)
-
-These are floors that catch an unready model, not a clinical claim. Do not lower them to make a model pass.
+**PASSED** every criterion in `config.AcceptanceConfig`. The service will load this model.
 
 ## Data
 
@@ -102,17 +127,17 @@ The classical gate (sharpness, field of view, exposure) barely separates human-a
 
 ## Abstention and coverage
 
-The system can decline to decide and route a case to a human grader.
+The system can decline to decide and route a case to a human grader. The band is fitted on the site's calibration half and measured on its held-out evaluation half.
 
 | Coverage | Cases auto-decided | Sent to human | Sensitivity | Specificity |
 |---|---|---|---|---|
-| 100% | 294 | 0 | 0.902 | 0.906 |
-| 95% | 285 | 9 | 0.898 | 0.916 |
-| 90% | 285 | 9 | 0.898 | 0.916 |
-| 85% | 263 | 31 | 0.921 | 0.906 |
-| 80% | 263 | 31 | 0.921 | 0.906 |
-| 70% | 230 | 64 | 0.971 | 0.896 |
-| 60% | 230 | 64 | 0.971 | 0.896 |
+| 100% | 257 | 0 | 0.882 | 0.854 |
+| 95% | 257 | 0 | 0.882 | 0.854 |
+| 90% | 225 | 32 | 0.862 | 0.931 |
+| 85% | 224 | 33 | 0.869 | 0.931 |
+| 80% | 210 | 47 | 0.908 | 0.924 |
+| 70% | 164 | 93 | 0.920 | 0.984 |
+| 60% | 164 | 93 | 0.920 | 0.984 |
 
 Retained-set performance must always be read alongside coverage. Performance on retained cases alone is trivially inflated by abstaining on everything difficult.
 
@@ -136,7 +161,8 @@ Absence of measurement is not evidence of fairness. Documented disparities in re
 | | |
 |---|---|
 | Preprocessing fingerprint | `325d1be426e8c5e1` |
-| Calibration | `"isotonic"` |
+| Calibration | `"isotonic"` (site profile) |
+| Test-time augmentation | `d8` |
 | Evaluation artifact | `artifacts/evaluation.json` |
 
 The preprocessing fingerprint is stored inside the model checkpoint and verified at load time. A mismatch is a hard error, because silent train/serve skew degrades a model without producing any error message.

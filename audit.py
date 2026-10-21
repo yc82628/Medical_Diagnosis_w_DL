@@ -369,6 +369,28 @@ def encounter_cases(con, encounter_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def list_visits(con, limit: int = 200) -> list[dict]:
+    """
+    One row per screening visit (encounter), most recent first, each with all
+    of its images. The worklist a clinician works through is patients, not
+    images: one visit is typically 2-4 images.
+    """
+    with con.lock:
+        heads = con.execute(
+            """SELECT encounter_id, MAX(patient_id) AS patient_id,
+                      MIN(created_utc) AS first_utc, MAX(created_utc) AS last_utc,
+                      COUNT(*) AS n_images
+                 FROM predictions WHERE encounter_id IS NOT NULL
+                GROUP BY encounter_id ORDER BY last_utc DESC LIMIT ?""",
+            (limit,)).fetchall()
+    out = []
+    for h in heads:
+        visit = dict(h)
+        visit["cases"] = encounter_cases(con, h["encounter_id"])
+        out.append(visit)
+    return out
+
+
 def _latest_agreement(con, where: str = "", args: tuple = ()) -> tuple[int, int]:
     """(agreed, disagreed) counting each case ONCE, by its latest verdict."""
     row = con.execute(

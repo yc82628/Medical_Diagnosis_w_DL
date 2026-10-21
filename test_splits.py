@@ -127,3 +127,51 @@ def test_invalid_grades_rejected():
     df = make_df(); df.loc[0, "diagnosis"] = 7
     with pytest.raises(ValueError, match="outside"):
         prepare_labels(df, DC, verbose=False)
+
+# ---------------------------------------------------------------------------
+# Site-calibration split (external set: calibration half vs held-out half)
+# ---------------------------------------------------------------------------
+
+from splits import split_site_calibration  # noqa: E402
+
+
+def _site_df(n=516, seed=1):
+    rng = np.random.default_rng(seed)
+    g = rng.choice([0, 1, 2, 3, 4], size=n, p=[.33, .05, .33, .19, .10])
+    df = pd.DataFrame({"id_code": [f"IDRiD_{i:03d}.jpg" for i in range(n)],
+                       "diagnosis": g})
+    dc = DataConfig(filename_col="id_code", grade_col="diagnosis",
+                    patient_id_source="unique_per_row", cache_dir="/tmp/_no_cache")
+    return prepare_labels(df, dc, verbose=False)
+
+
+def test_site_split_is_disjoint_complete_and_balanced():
+    d = _site_df()
+    parts = split_site_calibration(d, verbose=False)
+    cal, ev = set(parts["calibration"]["filename"]), set(parts["evaluation"]["filename"])
+    assert not cal & ev
+    assert cal | ev == set(d["filename"])
+    assert abs(len(cal) - len(ev)) <= 1
+    # Stratified: referable prevalence nearly equal on both halves.
+    assert abs(parts["calibration"]["referable"].mean()
+               - parts["evaluation"]["referable"].mean()) < 0.02
+
+
+def test_site_split_is_fixed():
+    """The held-out half must not move between runs, or it stops being held out."""
+    d = _site_df()
+    a = split_site_calibration(d, verbose=False)["evaluation"]["filename"]
+    b = split_site_calibration(d.sample(frac=1, random_state=3), verbose=False)["evaluation"]["filename"]
+    assert sorted(a) == sorted(b)
+
+
+def test_site_split_keeps_patients_together():
+    d = prepare_labels(make_df(200), DC, verbose=False)
+    parts = split_site_calibration(d, verbose=False)
+    assert not (set(parts["calibration"]["patient_id"])
+                & set(parts["evaluation"]["patient_id"]))
+
+
+def test_site_split_rejects_a_degenerate_fraction():
+    with pytest.raises(ValueError):
+        split_site_calibration(_site_df(), calibration_frac=1.0, verbose=False)

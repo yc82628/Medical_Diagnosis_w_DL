@@ -116,6 +116,10 @@ class DataConfig:
 class TrainConfig:
     backbone: str = "efficientnet_b3"
     dropout: float = 0.3
+    # Training augmentation profile, see dataset.build_transforms: "mild" or
+    # "strong" (simulates the camera shift measured on IDRiD).
+    augment: str = "mild"
+    seed: int | None = None             # None = not seeded (the original runs)
  
     batch_size: int = 16                # 512px is memory-hungry
     grad_accum_steps: int = 2           # effective batch 32
@@ -206,6 +210,9 @@ _ENV_MAP = {
     "DR_EPOCHS":         ("train", "num_epochs", int),
     "DR_NUM_WORKERS":    ("train", "num_workers", int),
     "DR_SAVE_PATH":      ("train", "save_path", str),
+    "DR_AUGMENT":        ("train", "augment", str),
+    "DR_SEED":           ("train", "seed", int),
+    "DR_LR":             ("train", "learning_rate", float),
 }
  
  
