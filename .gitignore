@@ -41,3 +41,8 @@ eyeq/
 deepdrid/
 idrid/
 IDRiD/
+
+# Deployment secrets and machine-specific settings (deploy kit). Never commit.
+deploy/certs/
+deploy/server.env
+backups/

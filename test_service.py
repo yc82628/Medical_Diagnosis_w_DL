@@ -502,3 +502,55 @@ def test_visit_worklist_groups_images_and_puts_pending_first(env):
 def test_visit_worklist_requires_sign_in(env):
     app, *_ = env
     assert TestClient(app).get("/api/visits").status_code == 401
+
+
+# -- staff-network allow-list and inactivity sign-out --------------------------
+
+def _app_on_networks(tmp_path, spec):
+    return create_app(db_path=tmp_path / "n.db", image_root=tmp_path / "ni",
+                      data_key=Fernet.generate_key(), predictor=DemoPredictor(),
+                      allowed_networks=spec)
+
+
+def test_only_staff_network_reaches_the_service(tmp_path):
+    app = _app_on_networks(tmp_path, "192.168.10.0/24, 10.20.0.0/16")
+    staff = TestClient(app, client=("192.168.10.57", 50000))
+    guest = TestClient(app, client=("192.168.99.4", 50000))
+    local = TestClient(app, client=("127.0.0.1", 50000))
+    assert staff.get("/api/health").status_code == 200
+    assert TestClient(app, client=("10.20.3.9", 1)).get("/").status_code == 200
+    r = guest.get("/")
+    assert r.status_code == 403 and "staff network" in r.text
+    assert guest.post("/api/login", json={"username": "x", "password": "y"}).status_code == 403
+    assert local.get("/api/health").status_code == 200        # the server itself
+
+
+def test_no_allow_list_means_unrestricted(tmp_path):
+    app = _app_on_networks(tmp_path, "")
+    assert TestClient(app, client=("8.8.8.8", 1)).get("/api/health").status_code == 200
+
+
+def test_typo_in_allow_list_refuses_to_start(tmp_path):
+    with pytest.raises(SystemExit, match="not a network"):
+        _app_on_networks(tmp_path, "192.168.10.0/24, 192.168.300.0/24")
+
+
+def test_idle_session_signs_out(env):
+    from datetime import datetime, timedelta, timezone
+    app, con, *_ = env
+    token = auth.create_session(con, "gus")
+    t0 = datetime.now(timezone.utc)
+    idle = timedelta(minutes=15)
+    assert auth.resolve_session(con, token, idle=idle, now=t0 + timedelta(minutes=10))
+    # Activity at 10 min resets the clock: still signed in at 24 min.
+    assert auth.resolve_session(con, token, idle=idle, now=t0 + timedelta(minutes=24))
+    # 16 idle minutes later the session is gone, and stays gone.
+    assert auth.resolve_session(con, token, idle=idle, now=t0 + timedelta(minutes=41)) is None
+    assert auth.resolve_session(con, token, idle=idle, now=t0 + timedelta(minutes=42)) is None
+
+
+def test_https_responses_carry_hsts(env):
+    app, *_ = env
+    r = TestClient(app, base_url="https://retina.hospital.local").get("/api/health")
+    assert "max-age" in r.headers.get("strict-transport-security", "")
+    assert "strict-transport-security" not in TestClient(app).get("/api/health").headers

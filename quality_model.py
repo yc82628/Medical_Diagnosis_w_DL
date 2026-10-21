@@ -499,7 +499,7 @@ def main(argv=None):
     print(f"\n  Threshold P(ungradable) >= {thr:.4f} (val false rejects "
           f"{val['false_reject_rate']:.1%}, catch {val['catch_rate']:.1%})")
     print(f"\n  Held-out test ({test['n']} images, {rep['split']['test']['patients']} patients)")
-    print(f"                    learned        classical")
+    print("                    learned        classical")
     print(f"    AUROC           {test['auroc']:.3f}          {classical['auroc_blur_var']:.3f}"
           f" (sharpness)")
     print(f"    catch rate      {test['catch_rate']:.1%}          {classical['catch_rate']:.1%}")

@@ -32,6 +32,7 @@ Endpoints                                          roles
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 from datetime import datetime
@@ -115,6 +116,37 @@ def _decode_upload(raw: bytes, filename: str | None):
     return arr, {}, "image"
 
 
+def parse_networks(spec: str) -> list:
+    """
+    "192.168.10.0/24, 10.20.0.0/16" -> networks. Empty means no restriction
+    (development on one machine). A bad entry is a startup error, never
+    silently ignored: a typo must not open the service to every network.
+    """
+    nets = []
+    for part in (spec or "").replace(";", ",").split(","):
+        part = part.strip()
+        if part:
+            try:
+                nets.append(ipaddress.ip_network(part, strict=False))
+            except ValueError:
+                raise SystemExit(f"  DR_ALLOWED_NETWORKS: {part!r} is not a network "
+                                 f"(expected e.g. 192.168.10.0/24).")
+    return nets
+
+
+def client_allowed(host: str | None, networks: list) -> bool:
+    """Loopback (this machine) is always allowed; anything else must match."""
+    try:
+        ip = ipaddress.ip_address(host)
+    except (TypeError, ValueError):
+        return False                  # no or unparseable client address: refuse
+    if ip.is_loopback:
+        return True
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return any(ip in n for n in networks if n.version == ip.version)
+
+
 def _json_safe(o):
     """NaN/inf -> None. evaluation.json legitimately holds NaN (e.g. NPV with no
     negatives); Python parses it, but a JSON response cannot carry it."""
@@ -138,11 +170,12 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
                evaluation_path="artifacts/evaluation.json",
                data_key: bytes | None = None, predictor=None,
                load_note: str | None = None, cookie_secure: bool | None = None,
-               sso_header: str | None = None) -> FastAPI:
+               sso_header: str | None = None,
+               allowed_networks: str | None = None) -> FastAPI:
     """
     Build the app. Tests pass temporary paths, a key and a stub predictor;
     production uses the defaults plus environment (DR_DATA_KEY, DR_SSO_HEADER,
-    DR_COOKIE_SECURE).
+    DR_COOKIE_SECURE, DR_ALLOWED_NETWORKS, DR_IDLE_MINUTES).
     """
     if predictor is None:
         predictor, load_note = build_predictor()
@@ -167,8 +200,24 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
 
     # -- middleware ---------------------------------------------------------
 
+    networks = parse_networks(allowed_networks if allowed_networks is not None
+                              else os.environ.get("DR_ALLOWED_NETWORKS", ""))
+    app.state.allowed_networks = networks
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
+        # Network allow-list, before anything else -- including the sign-in
+        # page. Hospital Wi-Fi often carries guests and visitors alongside
+        # staff; a password alone should not be the only thing between them
+        # and patient images. The machine itself (loopback) is always allowed.
+        client = request.client.host if request.client else None
+        if networks and not client_allowed(client, networks):
+            return HTMLResponse(
+                "<!DOCTYPE html><meta charset=utf-8><title>Not available</title>"
+                "<body style='font:16px system-ui;padding:40px;background:#101419;color:#E6EAF0'>"
+                "<h1 style='font-size:20px'>Not available on this network</h1>"
+                "<p>Retinal Screening is only available on the hospital staff network. "
+                "Connect to the staff Wi-Fi, or contact IT.</p></body>", status_code=403)
         # Refuse oversized uploads before reading the body.
         if request.url.path == "/api/predict":
             length = request.headers.get("content-length")
@@ -186,6 +235,9 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
         resp.headers["Referrer-Policy"] = "no-referrer"
         if request.url.path.startswith("/api/"):
             resp.headers["Cache-Control"] = "no-store"
+        if request.url.scheme == "https":
+            # Browsers must never fall back to plain HTTP for this site.
+            resp.headers["Strict-Transport-Security"] = "max-age=31536000"
         return resp
 
     # -- auth dependencies --------------------------------------------------

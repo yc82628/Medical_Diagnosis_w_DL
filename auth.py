@@ -41,6 +41,10 @@ PBKDF2_ITERATIONS = 600_000
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT = timedelta(minutes=15)
 SESSION_LIFETIME = timedelta(hours=8)       # one clinical shift
+# Shared ward PCs get walked away from. A session unused for this long ends,
+# whatever its 8-hour lifetime says. DR_IDLE_MINUTES overrides; 0 disables.
+IDLE_DEFAULT_MINUTES = 15
+_TOUCH_EVERY = timedelta(seconds=60)        # write last-seen at most once a minute
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -78,6 +82,17 @@ def _iso(d: datetime) -> str:
 def init_schema(con) -> None:
     with con.lock:
         con.executescript(_SCHEMA)
+        cols = {r["name"] for r in con.execute("PRAGMA table_info(sessions)")}
+        if "last_seen_utc" not in cols:
+            con.execute("ALTER TABLE sessions ADD COLUMN last_seen_utc TEXT")
+        con.commit()
+
+
+def idle_limit() -> timedelta | None:
+    import os
+    raw = os.environ.get("DR_IDLE_MINUTES", "").strip()
+    minutes = float(raw) if raw else IDLE_DEFAULT_MINUTES
+    return timedelta(minutes=minutes) if minutes > 0 else None
 
 
 # -- passwords ---------------------------------------------------------------
@@ -197,17 +212,36 @@ def create_session(con, username: str) -> str:
     return token
 
 
-def resolve_session(con, token: str | None) -> dict | None:
+def resolve_session(con, token: str | None, idle: timedelta | None = None,
+                    now: datetime | None = None) -> dict | None:
+    """
+    The signed-in user, or None. A session ends when revoked, expired, its
+    user is disabled, or -- with `idle` -- after `idle` without a request.
+    `idle` defaults to idle_limit() (DR_IDLE_MINUTES, 15 minutes).
+    """
     if not token:
         return None
+    idle = idle_limit() if idle is None else idle
+    now = now or _now()
+    th = _token_hash(token)
     with con.lock:
         r = con.execute(
-            """SELECT u.username, u.role, u.active, s.expires_utc, s.revoked
+            """SELECT u.username, u.role, u.active, s.created_utc, s.expires_utc,
+                      s.revoked, s.last_seen_utc
                  FROM sessions s JOIN users u ON u.username = s.username
-                WHERE s.token_sha256 = ?""", (_token_hash(token),)).fetchone()
-    if (r is None or r["revoked"] or not r["active"]
-            or datetime.fromisoformat(r["expires_utc"]) <= _now()):
-        return None
+                WHERE s.token_sha256 = ?""", (th,)).fetchone()
+        if (r is None or r["revoked"] or not r["active"]
+                or datetime.fromisoformat(r["expires_utc"]) <= now):
+            return None
+        seen = datetime.fromisoformat(r["last_seen_utc"] or r["created_utc"])
+        if idle and now - seen > idle:
+            con.execute("UPDATE sessions SET revoked=1 WHERE token_sha256=?", (th,))
+            con.commit()
+            return None
+        if now - seen >= _TOUCH_EVERY:
+            con.execute("UPDATE sessions SET last_seen_utc=? WHERE token_sha256=?",
+                        (_iso(now), th))
+            con.commit()
     return {"username": r["username"], "role": r["role"]}
 
 

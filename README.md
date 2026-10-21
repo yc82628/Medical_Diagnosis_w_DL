@@ -312,6 +312,10 @@ without arguments.
 
 ## Running the platform safely
 
+**To serve it to staff on a hospital network** (one GPU laptop or PC, HTTPS,
+staff Wi-Fi only), follow **`DEPLOY.md`**: `deploy/setup.py` does the first-run
+setup, `deploy/start_server.bat` starts it, `deploy/backup.py` backs it up.
+
 `service.py` binds to `127.0.0.1` (this machine only) by default. Binding to
 any other address requires both the
 `--i-understand-this-is-not-a-medical-device` flag — exposing it changes the
