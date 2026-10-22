@@ -192,6 +192,23 @@ class BasePredictor:
  
 # ---------------------------------------------------------------------------
  
+def apply_calibration(calibration: dict, logit: float) -> float:
+    """
+    A saved calibration (metrics.Calibrator.to_dict) applied to one referable
+    logit. The ONE implementation: the service and learning/recalibrate_dr.py
+    both use it, so a recalibrated profile is judged exactly as it will run.
+    """
+    m = (calibration or {}).get("method", "identity")
+    if m == "temperature":
+        T = calibration.get("temperature") or 1.0
+        return float(1 / (1 + np.exp(-np.clip(logit / T, -30, 30))))
+    if m == "isotonic":
+        xs = np.asarray(calibration["isotonic_x"], dtype=float)
+        ys = np.asarray(calibration["isotonic_y"], dtype=float)
+        return float(np.interp(logit, xs, ys, left=ys[0], right=ys[-1]))
+    return float(1 / (1 + np.exp(-np.clip(logit, -30, 30))))
+
+
 class TorchPredictor(BasePredictor):
     """Real model. Preprocessing comes from the checkpoint, not from config.py."""
  
@@ -215,15 +232,7 @@ class TorchPredictor(BasePredictor):
         self.tta = tta or "none"
  
     def _apply_calibration(self, logit: float) -> float:
-        m = self.calibration.get("method", "identity")
-        if m == "temperature":
-            T = self.calibration.get("temperature") or 1.0
-            return float(1 / (1 + np.exp(-np.clip(logit / T, -30, 30))))
-        if m == "isotonic":
-            xs = np.asarray(self.calibration["isotonic_x"], dtype=float)
-            ys = np.asarray(self.calibration["isotonic_y"], dtype=float)
-            return float(np.interp(logit, xs, ys, left=ys[0], right=ys[-1]))
-        return float(1 / (1 + np.exp(-np.clip(logit, -30, 30))))
+        return apply_calibration(self.calibration, logit)
  
     def _score(self, img_bgr):
         torch = self.torch

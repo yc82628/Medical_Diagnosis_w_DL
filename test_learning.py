@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 import pandas as pd
 import pytest
 from cryptography.fernet import Fernet
@@ -169,3 +170,39 @@ def test_sample_size_is_sane():
     assert 0.82 < lo < 0.83 and 0.94 < hi < 0.96
     totals = [ss.plan(prevalence=p)["total_images"] for p in (0.08, 0.15, 0.25)]
     assert totals[0] > totals[1] > totals[2]
+
+
+# -- DR site recalibration ------------------------------------------------------------
+
+def _part(rng, n, pos, sep, prefix, sd=3.0):
+    # Gaussian classes at +-sep with spread sd are calibrated at T = sd^2 / (2 sep):
+    # sep 4.5, sd 3 -> T 1.0 and AUROC ~0.98, like a real, informative model.
+    y = (rng.random(n) < pos).astype(int)
+    logit = rng.normal(0, sd, n) + sep * (2 * y - 1)
+    return {"logit": logit, "y": y, "patient": [f"{prefix}{i // 2}" for i in range(n)],
+            "grade_true": np.where(y == 1, 3.0, 0.0), "grade_pred": np.where(logit > 0, 3, 0)}
+
+
+def test_recalibration_candidate_uses_the_local_locked_test(monkeypatch):
+    import numpy as np  # noqa: F811
+    from recalibrate_dr import build_candidate
+    from predictor import acceptance_failures
+    from test_acceptance import FP, SHA, _good_evaluation
+
+    rng = np.random.default_rng(0)
+    current = _good_evaluation(calibration={"method": "temperature", "temperature": 1.4},
+                               external_test={"tp": 40, "fn": 12, "auroc": 0.88,
+                                              "sensitivity": 0.77, "specificity": 0.85, "ece": 0.15})
+    cand = build_candidate(current, _part(rng, 400, 0.4, 4.5, "c"), _part(rng, 300, 0.4, 4.5, "t"), "snapX")
+    e = cand["external_test"]
+    assert e["n"] == 300 and e["profile"] == "site"
+    assert cand["previous_external_test"]["sensitivity"] == 0.77
+    assert cand["site_calibration"]["dataset"] == "local snapshot snapX"
+    assert "locked_test_under_previous_profile" in cand["site_calibration"]
+    assert any(abs(r["target_coverage"] - 0.85) < 1e-9 for r in cand["abstention"])
+    assert e["sensitivity"] >= 0.85
+    assert acceptance_failures(cand, SHA, FP) == []
+
+    weak = build_candidate(current, _part(rng, 400, 0.4, 0.45, "c", sd=0.95),
+                           _part(rng, 300, 0.4, 0.45, "t", sd=0.95), "snapY")
+    assert acceptance_failures(weak, SHA, FP), "uninformative scores must fail the gate"

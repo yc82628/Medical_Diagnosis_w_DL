@@ -41,6 +41,9 @@ REM 1. Export what graders decided (stays on hospital storage)
 REM 2. Retrain the image-quality model with the hospital's "Ungradable" verdicts
 .venv\Scripts\python learning\retrain_quality.py snapshots\20261022-150000
 
+REM    and re-calibrate the DR model for this hospital from its Refer / Routine verdicts
+.venv\Scripts\python learningecalibrate_dr.py snapshots61022-150000
+
 REM 3. Look, then decide
 .venv\Scripts\python learning\registry.py list quality
 .venv\Scripts\python learning\registry.py promote quality <version> --approved-by "Dr ..." --reason "..."
@@ -53,7 +56,7 @@ REM    restart the server; if anything looks wrong:
 | Grader records | Used for |
 |---|---|
 | **Ungradable** | Image-quality model: this site's cameras and capture faults (`retrain_quality.py`) |
-| Refer / Routine | DR model: site calibration on local cases (next step; the study protocol's phase A) |
+| Refer / Routine | DR model: **site calibration** on local cases (`recalibrate_dr.py`; the study protocol's phase A) |
 | ICDR grade 0–4 | DR model: grade-level retraining |
 | Maculopathy present / absent | The **external evaluation** the experimental maculopathy check needs before it may affect decisions |
 | Other findings (glaucoma suspected, AMD, vein occlusion, …) | Nothing yet. They build the labelled dataset a future model for that condition would need, and count trends |
@@ -77,6 +80,15 @@ new version is better on our own patients" an honest claim. Don't change
 `--locked-fraction` between snapshots of one site.
 
 ## Requirements before a candidate can show anything
+
+**DR re-calibration** (`recalibrate_dr.py`) needs at least 30 referable and
+30 non-referable graded images among the *training* patients, and referable
+images in the locked test set. It keeps the model's weights, re-fits only the
+calibration, threshold and uncertainty band, and passes only if the result
+clears the service's own acceptance gate, with this hospital's locked test as
+the external test.
+
+**Image quality**
 
 `retrain_quality.py` won't call a candidate "not worse" until the locked test
 set holds **at least 20 human-rejected images**. With fewer, no comparison is
