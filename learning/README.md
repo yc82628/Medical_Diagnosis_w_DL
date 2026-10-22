@@ -44,6 +44,9 @@ REM 2. Retrain the image-quality model with the hospital's "Ungradable" verdicts
 REM    and re-calibrate the DR model for this hospital from its Refer / Routine verdicts
 .venv\Scripts\python learning\recalibrate_dr.py snapshots\20261022-150000
 
+REM    and test the experimental maculopathy check on graders' maculopathy labels
+.venv\Scripts\python learning\evaluate_dme.py snapshots\20261022-150000
+
 REM 3. Look, then decide
 .venv\Scripts\python learning\registry.py list quality
 .venv\Scripts\python learning\registry.py promote quality <version> --approved-by "Dr ..." --reason "..."
@@ -58,7 +61,7 @@ REM    restart the server; if anything looks wrong:
 | **Ungradable** | Image-quality model: this site's cameras and capture faults (`retrain_quality.py`) |
 | Refer / Routine | DR model: **site calibration** on local cases (`recalibrate_dr.py`; the study protocol's phase A) |
 | ICDR grade 0–4 | DR model: grade-level retraining |
-| Maculopathy present / absent | The **external evaluation** the experimental maculopathy check needs before it may affect decisions |
+| Maculopathy present / absent | The **external evaluation** the experimental maculopathy check needs before it may affect decisions (`evaluate_dme.py`) |
 | Other findings (glaucoma suspected, AMD, vein occlusion, …) | Nothing yet. They build the labelled dataset a future model for that condition would need, and count trends |
 
 ## New or unexpected diseases
@@ -80,6 +83,11 @@ new version is better on our own patients" an honest claim. Don't change
 `--locked-fraction` between snapshots of one site.
 
 ## Requirements before a candidate can show anything
+
+**Maculopathy validation** (`evaluate_dme.py`) needs at least 30 images that
+graders marked *maculopathy present*. The model is not re-fitted, so every
+labelled local image counts. Even perfect results on fewer cases keep it
+experimental.
 
 **DR re-calibration** (`recalibrate_dr.py`) needs at least 30 referable and
 30 non-referable graded images among the *training* patients, and referable

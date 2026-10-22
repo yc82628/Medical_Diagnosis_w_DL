@@ -206,3 +206,25 @@ def test_recalibration_candidate_uses_the_local_locked_test(monkeypatch):
     weak = build_candidate(current, _part(rng, 400, 0.4, 0.45, "c", sd=0.95),
                            _part(rng, 300, 0.4, 0.45, "t", sd=0.95), "snapY")
     assert acceptance_failures(weak, SHA, FP), "uninformative scores must fail the gate"
+
+
+# -- external maculopathy evaluation ----------------------------------------------------
+
+def test_external_dme_report_decides_the_status():
+    from dme_model import dme_status
+    from evaluate_dme import external_report
+
+    rng = np.random.default_rng(1)
+    y = (rng.random(300) < 0.3).astype(int)
+    good_p = np.clip(0.75 * y + rng.normal(0.15, 0.12, 300), 0, 1)
+    rep = external_report(y, good_p, good_p >= 0.5, [f"p{i // 2}" for i in range(300)], "site")
+    assert rep["tp"] + rep["fn"] == y.sum() and rep["n"] == 300
+    assert dme_status({"external": rep})[0] == "validated"
+
+    noise = rng.random(300)
+    weak = external_report(y, noise, noise >= 0.5, [f"p{i}" for i in range(300)], "site")
+    status, why = dme_status({"external": weak})
+    assert status == "experimental" and any("auroc" in w for w in why)
+
+    few = external_report(y[:40], good_p[:40], good_p[:40] >= 0.5, [f"p{i}" for i in range(40)], "s")
+    assert dme_status({"external": few})[0] == "experimental"     # < 30 cases
