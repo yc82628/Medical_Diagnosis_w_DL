@@ -28,6 +28,7 @@ Endpoints                                          roles
     GET  /api/encounters/{id}/fhir  FHIR R4 report grader, admin (logged)
     GET  /api/summary            rollup            any
     GET  /api/monitoring         drift signals     grader, admin
+    GET  /api/learning           learning progress grader, admin
     GET  /api/audit/verify       chain check       admin
 """
 from __future__ import annotations
@@ -586,6 +587,12 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
     @app.get("/api/monitoring")
     def monitoring(days: int = 90, user: dict = Depends(require(*CLINICAL))):
         return audit.monitoring(con, max(7, min(days, 730)))
+
+    @app.get("/api/learning")
+    def learning_progress(user: dict = Depends(require(*CLINICAL))):
+        """How close each learning-loop step is to having enough graded data."""
+        from learning.progress import progress
+        return progress(con)
 
     @app.get("/api/audit/verify")
     def verify(user: dict = Depends(require("admin"))):

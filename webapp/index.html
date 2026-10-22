@@ -225,6 +225,12 @@ table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
 .card h3{margin:0 0 10px;font-size:16px;color:var(--text)}
 .alertbox{background:#FEF3F2;border:1px solid #F5A097;color:#8A1C12;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
+.lstep{margin:10px 0}
+.lrow{display:flex;justify-content:space-between;gap:10px;font-size:15px}
+.lrow .ok{color:var(--routine);font-weight:700}
+.lbar{height:10px;background:var(--raise);border:1px solid var(--line2);border-radius:6px;overflow:hidden;margin:4px 0}
+.lbar i{display:block;height:100%;background:var(--review)}
+.lsub{font-size:13.5px;color:var(--muted)}
 .okbox{background:#ECFDF3;border:1px solid #7FD4A8;color:#05603A;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
 .tablewrap{overflow-x:auto}
 table.grid{width:100%;border-collapse:collapse;font:14px var(--mono)}
@@ -823,6 +829,7 @@ async function upload(files){
 $('#monBtn').onclick = async () => {
   CURRENT = null; renderList();
   const m = await api('/api/monitoring');
+  const L = await api('/api/learning').catch(() => null);
   const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td><td>${pct(r.refer_rate)}</td>
     <td>${pct(r.manual_rate)}</td><td>${pct(r.ungradable_rate)}</td><td>${r.reviewed ?? 0}</td><td>${pct(r.agreement_rate)}</td></tr>`;
   const head = first => `<tr><th>${first}</th><th>Images</th><th>Refer</th><th>Human review</th><th>Ungradable</th><th>Reviewed</th><th>Agreement</th></tr>`;
@@ -831,6 +838,7 @@ $('#monBtn').onclick = async () => {
     <div class="card"><h3>Alerts</h3>
       ${m.alerts.length ? m.alerts.map(a => `<div class="alertbox">${esc(a)}</div>`).join('') : '<div class="okbox">No warning signs in this period.</div>'}
       <p style="color:var(--faint);font-size:13px;margin:6px 0 0">A new camera, photographer or patient group can make the model worse without any error. Falling agreement with graders and rising ungradable rates are the early signs.</p></div>
+    ${L ? learningCard(L) : ''}
     <div class="card"><h3>Recent vs earlier</h3><div class="tablewrap"><table class="grid">${head('Period')}
       ${row(`Last ${m.recent_days} days`, m.recent)}${row('Earlier', m.baseline)}</table></div></div>
     <div class="card"><h3>By camera</h3><div class="tablewrap"><table class="grid">${head('Camera')}
@@ -848,6 +856,33 @@ $('#monBtn').onclick = async () => {
       : `<div class="alertbox">Integrity check FAILED:<br>${v.problems.slice(0, 20).map(esc).join('<br>')}</div>`;
   };
 };
+
+/* ---------- learning progress ---------- */
+// How close each improvement is to having enough graded cases. The models
+// never change themselves: when a step is ready, a technical lead runs its
+// script, and a named person approves the result (learning/README.md).
+function learningCard(L){
+  const F = SYS.findings || {};
+  const bar = st => {
+    const pctDone = Math.min(100, Math.round(100 * st.have / Math.max(st.need, 1)));
+    return `<div class="lstep">
+      <div class="lrow"><b>${esc(st.name)}</b><span class="${st.ready ? 'ok' : ''}">${st.ready ? 'Enough data' : `${st.have} of ${st.need}`}</span></div>
+      <div class="lbar" role="progressbar" aria-valuemin="0" aria-valuemax="${st.need}" aria-valuenow="${Math.min(st.have, st.need)}"
+        aria-label="${esc(st.name)}"><i style="width:${pctDone}%"></i></div>
+      <div class="lsub">${esc(st.what)}${st.ready ? ` · ready for <code>${esc(st.script)}</code>` : ''}</div></div>`;
+  };
+  const findings = Object.entries(L.findings || {});
+  return `<div class="card"><h3>Learning from your decisions</h3>
+    <p class="lsub" style="margin:0 0 10px">${L.graded_images} graded images · ${L.with_grade} with a grade ·
+      ${L.with_maculopathy_label} with a maculopathy label · ${L.locked_test_images} in the locked test set.
+      The models never change on their own: each improvement is a reviewed, approved release.</p>
+    ${L.steps.map(bar).join('')}
+    ${findings.length ? `<div class="lsub" style="margin-top:10px"><b>Other findings recorded:</b>
+      ${findings.map(([k, n]) => `${esc(F[k] || k)}: ${n}`).join(' · ')}</div>` : ''}
+    ${L.pending_candidates.length ? `<div class="alertbox" style="margin-top:12px">${L.pending_candidates.length} model
+      candidate(s) waiting for review: ${L.pending_candidates.map(c => `${esc(c.kind)} ${esc(c.version)}${c.passes ? '' : ' (does not pass)'}`).join(', ')}.</div>` : ''}
+  </div>`;
+}
 
 /* ---------- boot ---------- */
 async function boot(){

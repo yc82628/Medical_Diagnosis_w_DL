@@ -677,3 +677,24 @@ def test_findings_list_offered_to_the_interface(env):
     app, *_ = env
     f = client_for(app, "gus").get("/api/system").json()["findings"]
     assert "glaucoma_suspect" in f and "other" in f
+
+
+# -- learning progress -----------------------------------------------------------------
+
+def test_learning_progress_counts_towards_each_step(env, monkeypatch):
+    monkeypatch.setenv("DR_PSEUDONYM_KEY", "test-key")
+    app, con, *_ = env
+    g = client_for(app, "gus")
+    c1 = upload(g, patient="PA", eye="left").json()["case_id"]
+    c2 = upload(g, patient="PB", eye="left").json()["case_id"]
+    g.post(f"/api/cases/{c1}/verdict", json={"verdict": "REFER", "grade": 3, "dme": True,
+                                             "findings": ["amd"]})
+    g.post(f"/api/cases/{c2}/verdict", json={"verdict": "UNGRADABLE"})
+    L = g.get("/api/learning").json()
+    assert L["graded_images"] == 2 and L["with_grade"] == 1 and L["with_maculopathy_label"] == 1
+    assert L["findings"] == {"amd": 1}
+    names = {s["name"]: s for s in L["steps"]}
+    assert names["Maculopathy check: external validation"]["have"] == 1
+    assert names["Maculopathy check: external validation"]["need"] == 30
+    assert not any(s["ready"] for s in L["steps"])
+    assert client_for(app, "pia").get("/api/learning").status_code == 403

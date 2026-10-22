@@ -17,6 +17,12 @@ better models, **without the model ever changing itself**.
         └─────────────── restart: the new version serves ◀────────────────┘
 ```
 
+**Where things stand:** the *Monitoring* page (graders and admins) shows a
+*Learning from your decisions* panel. It counts graded images, grades,
+maculopathy labels and other findings, shows each step's progress towards the
+minimum data it needs (e.g. "Maculopathy check: 4 of 30"), and lists model
+candidates waiting for review.
+
 ## Why it never updates itself
 
 A model that silently learned from its own users could learn one person's
