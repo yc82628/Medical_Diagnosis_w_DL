@@ -5,168 +5,263 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retinal Screening</title>
 <style>
+/*
+  Browser baseline: Chrome / Edge 84+, Firefox 78+, Safari 14+ (mid-2020) --
+  this includes the last browsers available for Windows 7 and 8.1, which many
+  hospital PCs still run. Deliberately NOT used, because those browsers lack
+  them: color-mix(), aspect-ratio, the `inset` shorthand. test_compat.py
+  enforces this.
+
+  Light, high-contrast design for older monitors and readers: text colours
+  meet WCAG AA (4.5:1) on white, base text is 16px, touch/click targets are
+  at least 40px tall, and status is always written in words, never colour alone.
+*/
 :root{
-  --ink:#101419; --panel:#171C24; --raise:#1E242E; --line:#2A323E;
-  --text:#E6EAF0; --muted:#9AA4B4; --faint:#6A7483;
-  --amber:#E9A445;
-  --refer:#E4695C; --routine:#4CB08A; --review:#7BA0D9; --incomplete:#9AA4B4;
-  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --ink:#F3F5F8; --panel:#FFFFFF; --raise:#EEF1F5; --line:#C6CED8; --line2:#E3E8EE;
+  --text:#111827; --muted:#374151; --faint:#5B6573;
+  --brand:#9A4A06; --brandbg:#B45309;
+  --refer:#B42318; --routine:#067647; --review:#1D4ED8; --incomplete:#4B5563;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--ink);color:var(--text);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--ink);color:var(--text);font:16px/1.5 var(--sans)}
 button{font:inherit;cursor:pointer;color:inherit}
-input,select{font:inherit}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,select{font:inherit;color:var(--text)}
+.num{font-family:var(--mono)}
+.eyebrow{font-size:13px;font-weight:600;color:var(--muted)}
+:focus-visible{outline:3px solid var(--review);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
-.REFER{--c:var(--refer)} .ROUTINE{--c:var(--routine)} .MANUAL_REVIEW,.UNGRADABLE{--c:var(--review)} .INCOMPLETE{--c:var(--incomplete)}
-.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;
-  color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);white-space:nowrap}
+/* Status colours: text, tint and border per state (no color-mix). */
+.REFER{--c:var(--refer);--cbg:#FEF3F2;--cline:#F5A097}
+.ROUTINE{--c:var(--routine);--cbg:#ECFDF3;--cline:#7FD4A8}
+.MANUAL_REVIEW,.UNGRADABLE{--c:var(--review);--cbg:#EFF4FF;--cline:#9DB6F2}
+.INCOMPLETE{--c:var(--incomplete);--cbg:#F2F4F7;--cline:#C3C9D2}
+.tag{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;
+  color:var(--c);background:var(--cbg);border:1px solid var(--cline);white-space:nowrap;line-height:1.5}
 
 /* ---------- safety strip ---------- */
-#strip{padding:7px 18px;font-size:13px;color:var(--muted);background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
-#strip b{color:var(--text);font-weight:600}
-#strip.DEMO{background:#2A2114;border-color:#4A3520;color:#D9BB8E} #strip.DEMO b{color:var(--amber)}
-#strip.UNVALIDATED{background:#341614;border-color:#6A2A24;color:#E8B1AA} #strip.UNVALIDATED b{color:var(--refer)}
-#strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:13px}
-#stripNote{flex-basis:100%;font-size:12.5px;display:none}
+#strip{padding:8px 20px;font-size:14px;color:var(--muted);background:#E9EDF2;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+#strip b{color:var(--text);font-weight:700}
+#strip.DEMO{background:#FFF7E6;border-color:#F3C77A;color:#7A3A06} #strip.DEMO b{color:#7A3A06}
+#strip.UNVALIDATED{background:#FEF3F2;border-color:#F5A097;color:#8A1C12} #strip.UNVALIDATED b{color:#8A1C12}
+#strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:14px}
+#stripNote{flex-basis:100%;font-size:13.5px;display:none}
 #stripNote.on{display:block}
 
 /* ---------- top bar ---------- */
-header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.01em}
-.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid}
-.pill.MODEL{color:var(--routine);border-color:color-mix(in srgb,var(--routine) 50%,transparent)}
-.pill.UNVALIDATED{color:var(--refer);border-color:color-mix(in srgb,var(--refer) 50%,transparent)}
-.pill.DEMO{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 50%,transparent)}
+header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--panel);border-bottom:2px solid var(--line);flex-wrap:wrap}
+header h1{font-size:20px;margin:0;font-weight:700}
+.pill{font-size:13px;font-weight:700;padding:3px 11px;border-radius:999px;border:1px solid}
+.pill.MODEL{color:var(--routine);background:#ECFDF3;border-color:#7FD4A8}
+.pill.UNVALIDATED{color:var(--refer);background:#FEF3F2;border-color:#F5A097}
+.pill.DEMO{color:#7A3A06;background:#FFF7E6;border-color:#F3C77A}
 .spacer{flex:1}
-.btn{background:var(--raise);border:1px solid var(--line);padding:7px 13px;border-radius:8px;font-size:14px}
-.btn:hover:not(:disabled){border-color:var(--amber)}
+.btn{background:var(--panel);border:1px solid var(--line);padding:8px 15px;border-radius:8px;font-size:15px;min-height:40px;font-weight:600}
+.btn:hover:not(:disabled){border-color:var(--text);background:var(--raise)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.primary{background:var(--amber);border-color:var(--amber);color:#1A1307;font-weight:650}
-.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
-.btn.small{padding:4px 10px;font-size:13px}
-.who{font-size:13px;color:var(--muted)}
+.btn.primary{background:var(--brandbg);border-color:var(--brandbg);color:#fff}
+.btn.primary:hover:not(:disabled){background:#92400E;border-color:#92400E}
+.btn.small{padding:5px 12px;font-size:14px;min-height:34px}
+.who{font-size:14px;color:var(--muted)}
 
 /* ---------- layout ---------- */
-main{display:grid;grid-template-columns:330px 1fr;height:calc(100vh - 92px);min-height:420px}
+main{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 100px);min-height:420px}
 #rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
 #stage{overflow-y:auto;min-height:0}
-@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:46vh}}
+/* 1024x768 monitors: a slimmer list keeps both eyes readable. */
+@media (max-width:1100px){main{grid-template-columns:270px 1fr}}
+@media (max-width:800px){main{grid-template-columns:1fr;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
+@media (max-width:800px), (pointer:coarse){.railfoot,kbd{display:none}}
+@media (max-width:600px){
+  #strip{padding:6px 12px;font-size:13px}
+  header{padding:8px 12px;gap:8px}
+  header h1{font-size:17px}
+  .who{display:none}
+  .wrap{padding:14px 12px 96px}
+}
 
 /* ---------- worklist ---------- */
-.tabs{display:flex;gap:4px;padding:12px 12px 8px}
-.tabs button{flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 4px;font-size:13px;color:var(--muted)}
-.tabs button.on{background:var(--raise);color:var(--text);border-color:var(--faint)}
+.tabs{display:flex;gap:6px;padding:12px 12px 8px}
+.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 4px;font-size:14px;font-weight:600;color:var(--muted);min-height:38px}
+.tabs button.on{background:var(--text);color:#fff;border-color:var(--text)}
 .search{padding:0 12px 10px}
-.search input{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--text);padding:8px 11px;border-radius:8px;font-size:14px}
-#list{overflow-y:auto;flex:1;min-height:0}
-.visit{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid rgba(42,50,62,.6);padding:11px 14px 11px 12px;border-left:3px solid var(--c)}
-.visit:hover{background:rgba(255,255,255,.03)}
-.visit.on{background:rgba(233,164,69,.09)}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:15px}
+#list{overflow-y:auto;flex:1;min-height:0;border-top:1px solid var(--line2)}
+.visit{display:block;width:100%;text-align:left;background:var(--panel);border:0;border-bottom:1px solid var(--line2);padding:12px 14px 12px 12px;border-left:5px solid var(--c)}
+.visit:hover{background:var(--raise)}
+.visit.on{background:#FFF4E5}
 .visit .row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.visit .pid{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:12.5px;color:var(--faint)}
-.eyedot{display:inline-flex;align-items:center;gap:3px}
-.eyedot i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
-.eyedot.none{--c:var(--line)}
-.pending{color:var(--amber)}
-.empty-list{padding:28px 18px;color:var(--faint);font-size:14px;text-align:center}
-.railfoot{border-top:1px solid var(--line);padding:9px 14px;font-size:12px;color:var(--faint)}
-kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted)}
+.visit .pid{font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:13.5px;color:var(--faint);flex-wrap:wrap}
+.eyedot{display:inline-flex;align-items:center;gap:3px;font-weight:600}
+.eyedot i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
+.eyedot.none{--c:#D0D5DD}
+.pending{color:var(--brand);font-weight:600}
+.empty-list{padding:28px 18px;color:var(--faint);font-size:15px;text-align:center}
+.railfoot{border-top:1px solid var(--line2);padding:9px 14px;font-size:13px;color:var(--faint)}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel)}
 
 /* ---------- visit view ---------- */
-.wrap{padding:20px 24px 96px;max-width:1180px}
+.wrap{padding:20px 24px 100px;max-width:1180px}
 .vhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.vhead h2{margin:0;font-size:22px;font-weight:650}
-.vhead .meta{color:var(--faint);font-size:13.5px}
-.outcome{border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 9%,var(--panel));
-  border-radius:10px;padding:13px 16px;margin-bottom:18px}
-.outcome h3{margin:0 0 3px;font-size:18px;color:var(--c)}
-.outcome p{margin:0;color:var(--muted);font-size:14px}
+.vhead h2{margin:0;font-size:24px;font-weight:700}
+.vhead .meta{color:var(--faint);font-size:15px}
+.outcome{border:1px solid var(--cline);border-left:6px solid var(--c);background:var(--cbg);border-radius:10px;padding:14px 18px;margin-bottom:18px}
+.outcome h3{margin:0 0 3px;font-size:21px;color:var(--c)}
+.outcome p{margin:0;color:var(--text);font-size:16px}
 .eyes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:1100px){.eyes{grid-template-columns:1fr}}
-.eye{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:11px}
+@media (max-width:980px){.eyes{grid-template-columns:1fr}}
+.eye{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .eye .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.eye .top h4{margin:0;font-size:15px}
-.eye .src{font-size:12.5px;color:var(--faint);margin-left:auto}
-.imgbox{position:relative;line-height:0;background:#000;border-radius:9px;overflow:hidden;border:1px solid var(--line);aspect-ratio:1/1}
-.imgbox img{width:100%;height:100%;object-fit:contain;display:block}
-.imgbox .cam{position:absolute;inset:0;opacity:0;transition:opacity .3s;pointer-events:none}
+.eye .top .thumbs{margin-left:auto}
+.eye .top h4{margin:0;font-size:18px}
+.eye .src{font-size:13.5px;color:var(--faint);margin-left:auto}
+/* Square image box via padding (aspect-ratio is too new for the baseline). */
+.imgbox{position:relative;line-height:0;background:#000;border-radius:9px;overflow:hidden;border:1px solid var(--line);height:0;padding-top:100%}
+.imgbox img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:block}
+.imgbox .cam{opacity:0;transition:opacity .3s;pointer-events:none}
+/* The photo is sized by the screen's HEIGHT as well as the card's width, so
+   on short monitors (768px is common on older PCs) the decision buttons stay
+   on screen. Clicking it opens a full-screen view for detailed reading.
+   Percentage padding is relative to the card's width, like width, so the
+   pair keeps the box square. */
+.imgbox{display:block;width:min(100%,31vh);padding:min(100%,31vh) 0 0;margin:0 auto;cursor:zoom-in}
+.imgbox:hover .zoomhint,.imgbox:focus .zoomhint{opacity:1}
+.zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.8);color:#fff;font:600 12.5px/1.4 var(--sans);
+  padding:3px 9px;border-radius:6px;opacity:0;transition:opacity .2s}
+.imgwrap{position:relative;width:min(100%,31vh);margin:0 auto}
+.imgwrap .imgbox{width:100%;padding-top:100%}
+.camchip{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);color:#111;border:1px solid #9AA4B2;
+  border-radius:999px;padding:3px 11px;font:700 12.5px/1.5 var(--sans);min-height:28px}
+.camchip.on{background:#111827;color:#fff;border-color:#111827}
+#zoom{position:fixed;top:0;right:0;bottom:0;left:0;background:#000;display:none;z-index:30;cursor:zoom-out}
+#zoom.on{display:block}
+#zoom img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
+#zoom .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px;background:rgba(0,0,0,.6);color:#fff;font:600 16px var(--sans);z-index:1}
+#zoom .bar button{background:#fff;color:#111;border:0;border-radius:8px;padding:8px 16px;font-weight:700;min-height:40px}
+@media (max-height:900px){
+  .outcome{padding:9px 14px;margin-bottom:12px}
+  .outcome h3{font-size:19px;margin:0}
+  .vhead{margin-bottom:10px}
+  .wrap{padding-top:14px}
+  .eye{padding:12px;gap:9px}
+}
 .imgbox .cam.on{opacity:1}
-.thumbs{display:flex;gap:6px;flex-wrap:wrap}
-.thumbs button{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12.5px;display:inline-flex;gap:6px;align-items:center}
-.thumbs button.on{border-color:var(--amber);color:var(--amber)}
-.thumbs i{width:8px;height:8px;border-radius:50%;background:var(--c);display:inline-block}
-.result{font-size:14.5px}
+.thumbs{display:inline-flex;gap:6px;flex-wrap:wrap}
+.thumbs button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:14px;font-weight:700;display:inline-flex;gap:5px;align-items:center;min-height:32px}
+.thumbs button.on{border-color:var(--text);background:var(--raise);font-weight:700}
+.thumbs i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
+.result{font-size:16px}
 .result b{color:var(--c)}
-.result .sub{color:var(--faint);font-size:13px;margin-top:2px}
-.warn{background:color-mix(in srgb,var(--review) 12%,transparent);border:1px solid color-mix(in srgb,var(--review) 40%,transparent);border-radius:8px;padding:8px 11px;font-size:13.5px;color:#C5D4EE}
-.decide .eyebrow{display:block;margin-bottom:6px}
-.vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-.vb{background:var(--raise);border:1px solid var(--line);border-radius:9px;padding:10px 6px;font-weight:600;font-size:14px;position:relative}
-.vb:hover{border-color:var(--c)}
-.vb.sel{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);color:var(--c)}
-.vb .sug{position:absolute;top:-8px;right:6px;font-size:10px;font-weight:600;background:var(--ink);border:1px solid var(--line);border-radius:999px;padding:0 6px;color:var(--faint)}
-.graded{font-size:12.5px;color:var(--faint);margin-top:6px}
-.missing{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;border:1px dashed var(--line);border-radius:9px;color:var(--faint);font-size:14px;text-align:center;padding:20px}
-details{border-top:1px solid var(--line);padding-top:8px}
-summary{cursor:pointer;color:var(--faint);font-size:13px}
-table.kv{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-table.kv td{padding:4px 0;border-bottom:1px solid rgba(42,50,62,.5);vertical-align:top}
+.result .sub{color:var(--muted);font-size:14.5px;margin-top:2px}
+.warn{background:#EFF4FF;border:1px solid #9DB6F2;border-radius:8px;padding:10px 12px;font-size:15px;color:#1E3A8A}
+.decide .eyebrow{display:block;margin-bottom:7px;font-size:14.5px;color:var(--text)}
+.vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.vb{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 6px;font-weight:700;font-size:16px;min-height:50px;position:relative;color:var(--c)}
+.vb:hover{border-color:var(--c);background:var(--cbg)}
+.vb.sel{background:var(--c);border-color:var(--c);color:#fff}
+.vb .sug{position:absolute;top:-10px;right:6px;font-size:11.5px;font-weight:700;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 7px;color:var(--muted);line-height:1.6}
+.graded{font-size:14px;color:var(--muted);margin-top:7px}
+.missing{display:flex;align-items:center;justify-content:center;min-height:260px;border:2px dashed var(--line);border-radius:9px;color:var(--faint);font-size:15px;text-align:center;padding:20px}
+details{border-top:1px solid var(--line2);padding-top:8px}
+summary{cursor:pointer;color:var(--muted);font-size:14px}
+table.kv{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+table.kv td{padding:5px 0;border-bottom:1px solid var(--line2);vertical-align:top}
 table.kv td:first-child{color:var(--faint);width:46%}
 table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break-all}
-.camnote{font-size:12.5px;color:var(--faint);margin:0}
-.camnote.alert{color:#F1B4AC}
+.camnote{font-size:14px;color:var(--muted);margin:0}
+.camnote.alert{color:var(--refer);font-weight:600}
 
 /* decision axis (inside technical details) */
 .axiswrap{position:relative;height:30px;margin:22px 0 4px}
-.track{position:absolute;inset:auto 0 10px;height:8px;border-radius:4px;overflow:hidden;background:var(--raise);display:flex}
-.zone.r{background:rgba(76,176,138,.5)} .zone.a{background:repeating-linear-gradient(-45deg,rgba(123,160,217,.5) 0 5px,rgba(123,160,217,.2) 5px 10px)} .zone.f{background:rgba(228,105,92,.55)}
-.opline{position:absolute;bottom:6px;width:1.5px;height:15px;background:var(--text);opacity:.6}
-.marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--amber);border-radius:2px}
-.marker::after{content:attr(data-v);position:absolute;top:-17px;left:50%;transform:translateX(-50%);font:600 11px var(--mono);color:var(--amber)}
-.axlabels{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--faint)}
+.track{position:absolute;left:0;right:0;bottom:10px;height:8px;border-radius:4px;overflow:hidden;background:var(--raise);display:flex}
+.zone.r{background:#7FD4A8} .zone.a{background:repeating-linear-gradient(-45deg,#9DB6F2 0 5px,#DCE6FB 5px 10px)} .zone.f{background:#F5A097}
+.opline{position:absolute;bottom:6px;width:2px;height:15px;background:var(--text)}
+.marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--brandbg);border-radius:2px}
+.marker::after{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font:700 12px var(--mono);color:var(--brand)}
+.axlabels{display:flex;justify-content:space-between;font:12px var(--mono);color:var(--faint)}
 
 /* sticky action bar */
-.actions{position:sticky;bottom:0;margin-top:18px;background:linear-gradient(transparent,var(--ink) 30%);padding:18px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:8px;font-size:14px}
-.saved{color:var(--routine);font-size:13.5px}
+.actions{position:sticky;bottom:0;margin-top:18px;background:linear-gradient(rgba(243,245,248,0),var(--ink) 30%);padding:18px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:15px;min-height:42px}
+.actions .btn{min-height:44px;font-size:16px}
+.saved{color:var(--routine);font-size:15px;font-weight:600}
 
 .blank{padding:80px 30px;text-align:center;color:var(--faint);max-width:520px;margin:0 auto}
-.blank h2{color:var(--muted);font-size:18px;margin:0 0 8px}
+.blank h2{color:var(--muted);font-size:20px;margin:0 0 8px}
 
 /* ---------- dialogs ---------- */
-.overlay{position:fixed;inset:0;background:rgba(5,7,10,.72);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 .overlay.on{display:flex}
-.dialog{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
-.dialog h2{margin:0 0 4px;font-size:18px}
-.dialog p{margin:0 0 16px;color:var(--faint);font-size:13.5px}
+.dialog{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.dialog h2{margin:0 0 4px;font-size:21px}
+.dialog p{margin:0 0 16px;color:var(--muted);font-size:15px}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
-.field input,.field select{background:var(--ink);border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:8px;font-size:14px}
+.field input,.field select{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:8px;font-size:16px;min-height:44px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.drop{border:1.5px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;color:var(--muted);margin:4px 0 12px}
-.drop.hot{border-color:var(--amber);background:rgba(233,164,69,.06)}
-.err{color:var(--refer);font-size:13px;min-height:18px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;color:var(--muted);margin:4px 0 12px}
+.drop.hot{border-color:var(--brandbg);background:#FFF7E6}
+.err{color:var(--refer);font-size:14.5px;min-height:20px;font-weight:600}
 .row{display:flex;gap:8px;justify-content:flex-end}
 
 /* monitoring */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:14px}
-.card h3{margin:0 0 10px;font-size:14px;color:var(--muted)}
-.alertbox{background:color-mix(in srgb,var(--refer) 12%,transparent);border:1px solid color-mix(in srgb,var(--refer) 40%,transparent);color:#F1B4AC;border-radius:8px;padding:9px 12px;font-size:13.5px;margin-bottom:8px}
-.okbox{background:color-mix(in srgb,var(--routine) 12%,transparent);border:1px solid color-mix(in srgb,var(--routine) 40%,transparent);color:#A9DCC6;border-radius:8px;padding:9px 12px;font-size:13.5px;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:16px;color:var(--text)}
+.alertbox{background:#FEF3F2;border:1px solid #F5A097;color:#8A1C12;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
+.okbox{background:#ECFDF3;border:1px solid #7FD4A8;color:#05603A;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
 .tablewrap{overflow-x:auto}
-table.grid{width:100%;border-collapse:collapse;font:12.5px var(--mono)}
-table.grid th{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
-table.grid td{text-align:right;padding:6px 8px;border-bottom:1px solid rgba(42,50,62,.5)}
+table.grid{width:100%;border-collapse:collapse;font:14px var(--mono)}
+table.grid th{font:700 12.5px var(--sans);color:var(--muted);text-align:right;padding:7px 8px;border-bottom:2px solid var(--line)}
+table.grid td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line2)}
 table.grid th:first-child,table.grid td:first-child{text-align:left}
+
+/* Shown only to browsers too old for this page (see the check below). */
+#oldBrowser{display:none;max-width:640px;margin:60px auto;padding:24px;background:#fff;border:2px solid #B42318;border-radius:12px;font:17px/1.5 Arial,sans-serif;color:#111}
+#oldBrowser h1{font-size:22px;margin:0 0 10px;color:#B42318}
 </style>
 </head>
 <body>
+
+<div id="oldBrowser" role="alert">
+  <h1>This browser is too old for Retinal Screening</h1>
+  <p>Please open this address in <b>Microsoft Edge</b>, <b>Google Chrome</b> or <b>Mozilla Firefox</b>,
+  in a version from 2020 or newer. Internet Explorer is not supported.</p>
+  <p>If this computer has no newer browser, please contact the hospital IT service desk.</p>
+</div>
+<script>
+/* Old-browser probe, part 1. Uses the modern syntax the app relies on. A
+   browser that cannot parse it skips this whole script, so MODERN_OK stays
+   unset. (Not new Function(): the Content-Security-Policy forbids eval.) */
+window.MODERN_OK = (function () {
+  async function f() { await 0; }
+  const o = {b: 1};
+  return typeof f === 'function' && (o?.b ?? 0) === 1;
+})();
+</script>
+<script>
+/* Old-browser probe, part 2. Deliberately ES5 so that Internet Explorer and
+   the pre-2020 Edge run it: shows the message above instead of a blank page. */
+(function () {
+  var ok = window.MODERN_OK === true && !!(window.fetch && window.Promise &&
+           window.CSS && CSS.supports && CSS.supports('display', 'grid') &&
+           CSS.supports('--a', '0'));
+  if (ok) return;
+  window.OLD_BROWSER = true;
+  function hide() {
+    var kids = document.body.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].id !== 'oldBrowser') kids[i].style.display = 'none';
+    }
+    document.getElementById('oldBrowser').style.display = 'block';
+  }
+  hide();
+  document.addEventListener('DOMContentLoaded', hide);
+})();
+</script>
 
 <div class="overlay" id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <form class="dialog" id="loginForm" autocomplete="on">
@@ -200,6 +295,11 @@ table.grid th:first-child,table.grid td:first-child{text-align:left}
     <div class="err" id="addErr" role="alert"></div>
     <div class="row"><button class="btn" id="addClose">Close</button></div>
   </div>
+</div>
+
+<div id="zoom" role="dialog" aria-modal="true" aria-label="Enlarged photograph">
+  <div class="bar"><span id="zoomTitle"></span><button id="zoomClose">Close (Esc)</button></div>
+  <img id="zoomImg" alt="">
 </div>
 
 <div id="strip"><b>Research software — not a medical device.</b><span id="stripText">Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.</span></div>
@@ -351,7 +451,7 @@ function renderList(){
           ? `${v.pending_images} image${v.pending_images > 1 ? 's' : ''} to review` : '✓ reviewed'}</span></div>
     </button>`;
   }).join('');
-  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => openVisit(b.dataset.id));
+  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => openVisit(b.dataset.id, true));
 }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
@@ -366,7 +466,9 @@ function blank(){
     <p>Choose a patient from the list, or add images. Patients needing a decision are listed first.</p></div>`;
 }
 
-async function openVisit(id){
+const stacked = () => matchMedia('(max-width:900px)').matches;
+
+async function openVisit(id, reveal = false){
   CURRENT = id; PICK = {}; SHOWN = {};
   renderList();
   const v = await api('/api/encounters/' + encodeURIComponent(id));
@@ -378,23 +480,25 @@ async function openVisit(id){
     if (first) SHOWN[side] = first.case_id;
   }
   renderVisit();
+  // Instant, not smooth: images loading mid-animation cancel a smooth scroll.
+  if (reveal && stacked()) $('#stage').scrollIntoView({block:'start'});
 }
 
 function modelLine(c){
   const p = c.payload, q = p.quality || {};
   if (!c.gradable){
-    const why = (q.reasons || []).map(plainReason).join('; ') || 'image quality';
-    return `<div class="warn"><b style="color:inherit">Image not gradable</b> — ${esc(why)}.
-      Recapture or examine. This is not a negative result.</div>`;
+    // Short in the main view; the full reason is under Technical details.
+    return `<div class="warn"><b style="color:inherit">Image not gradable</b>: recapture or
+      examine. This is not a negative result.</div>`;
   }
   const prob = c.probability;
   let head;
   if (c.decision === 'MANUAL_REVIEW') head = `<b class="MANUAL_REVIEW">Borderline</b> — the model defers to you`;
   else if (c.decision === 'REFER') head = `<b class="REFER">Suggests refer</b>`;
   else head = `<b class="ROUTINE">Suggests routine</b>`;
-  const grade = c.payload.grade_label ? ` · Indicative grade: ${esc(c.payload.grade_label)}` : '';
-  return `<div class="result">Model: ${head}
-    <div class="sub">${pct(prob)} estimated chance of referable diabetic retinopathy${grade}</div></div>`;
+  const grade = c.payload.grade_label ? `Indicative grade: ${esc(c.payload.grade_label)}` : '';
+  return `<div class="result" title="Estimated chance of referable diabetic retinopathy">Model: ${head} · ${pct(prob)}
+    ${grade ? `<div class="sub">${grade}</div>` : ''}</div>`;
 }
 
 function axis(c){
@@ -419,6 +523,7 @@ function technical(c){
       <tr><td>Image file</td><td>${esc(c.filename)}</td></tr>
       <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
       <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
+      ${c.gradable ? '' : `<tr><td>Why not gradable</td><td style="font-family:var(--sans);text-align:left">${esc((q.reasons || []).map(plainReason).join('; ') || '—')}</td></tr>`}
       <tr><td>Looks like a retina</td><td>${q.is_fundus == null ? '—' : q.is_fundus ? 'yes' : 'no'}</td></tr>
       <tr><td>Model</td><td>${esc(c.model_version)}${c.validated ? '' : ' (not validated)'}</td></tr>
       <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
@@ -445,10 +550,11 @@ function eyeCard(side, label){
   const suggest = modelEye === 'MANUAL_REVIEW' ? null : modelEye;
   const allGraded = cases.every(x => x.latest_verdict);
   const thumbs = cases.length > 1 ? `<div class="thumbs">${cases.map((x, i) =>
-    `<button class="${x.case_id === c.case_id ? 'on' : ''} ${x.decision}" data-side="${side}" data-case="${esc(x.case_id)}">
-      <i></i>Image ${i + 1}</button>`).join('')}</div>` : '';
+    `<button class="${x.case_id === c.case_id ? 'on' : ''} ${x.decision}" data-side="${side}" data-case="${esc(x.case_id)}"
+      title="Image ${i + 1}" aria-label="Image ${i + 1}"><i></i>${i + 1}</button>`).join('')}</div>` : '';
   const camBtn = !SYS.gradcam_available || !clinical() ? '' : !c.gradable ? '' :
-    `<button class="btn small" data-cam="${esc(c.case_id)}">${CAM[c.case_id]?.on ? 'Hide' : 'Show'} attention map</button>`;
+    `<button class="camchip ${CAM[c.case_id]?.on ? 'on' : ''}" data-cam="${esc(c.case_id)}"
+       aria-pressed="${!!CAM[c.case_id]?.on}">${CAM[c.case_id]?.on ? 'Hide' : 'Show'} attention map</button>`;
   const cam = CAM[c.case_id];
   const camNote = cam?.error ? `<p class="camnote alert">${esc(cam.error)}</p>` :
     cam?.warn ? `<p class="camnote alert">Attention sits on the image border — possible shortcut. Review carefully.</p>` :
@@ -465,12 +571,14 @@ function eyeCard(side, label){
   </div>`;
   return `<div class="eye">
     <div class="top"><h4>${label}</h4>${e ? `<span class="tag ${e.outcome}">${SHORT[e.outcome]}</span>` : ''}
-      <span class="src">${e?.source === 'grader' ? 'graded' : 'model only'}</span></div>
-    ${thumbs}
-    <div class="imgbox"><img src="/api/cases/${encodeURIComponent(c.case_id)}/image" alt="${label} fundus photograph">
-      <img class="cam ${cam?.on ? 'on' : ''}" ${cam?.url ? `src="${cam.url}"` : ''} alt="Attention map"></div>
+      ${thumbs}</div>
+    <div class="imgwrap"><button class="imgbox" data-zoom="${esc(c.case_id)}" title="Click to enlarge"
+        aria-label="${label} fundus photograph. Click to enlarge.">
+      <img src="/api/cases/${encodeURIComponent(c.case_id)}/image" alt="">
+      <img class="cam ${cam?.on ? 'on' : ''}" ${cam?.url ? `src="${cam.url}"` : ''} alt="">
+      <span class="zoomhint" aria-hidden="true">Click to enlarge</span></button>${camBtn}</div>
     ${modelLine(c)}
-    ${camBtn ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${camBtn}${camNote}</div>` : ''}
+    ${camNote}
     ${decide}
     ${technical(c)}
   </div>`;
@@ -509,10 +617,26 @@ function wireVisit(){
     const note = $('#note')?.value; renderVisit(); if (note) $('#note').value = note;
   });
   st.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => toggleCam(b.dataset.cam));
+  st.querySelectorAll('[data-zoom]').forEach(b => b.onclick = () => openZoom(b.dataset.zoom));
   if ($('#fhirBtn')) $('#fhirBtn').onclick = downloadFhir;
   if ($('#nextBtn')) $('#nextBtn').onclick = () => step(1);
   if ($('#saveBtn')) $('#saveBtn').onclick = save;
 }
+
+function openZoom(id){
+  const c = DETAIL.cases[id], cam = CAM[id];
+  // Show what the doctor is looking at: the attention map if it is on.
+  $('#zoomImg').src = cam?.on && cam.url ? cam.url : `/api/cases/${encodeURIComponent(id)}/image`;
+  $('#zoomTitle').textContent = `${DETAIL.visit.patient_id || ''} · ${c.eye || ''} eye${cam?.on ? ' · attention map' : ''}`;
+  $('#zoom').classList.add('on');
+  $('#zoomClose').focus();
+}
+function closeZoom(){
+  $('#zoom').classList.remove('on');
+  $('#zoomImg').removeAttribute('src');
+}
+$('#zoom').onclick = closeZoom;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#zoom').classList.contains('on')) closeZoom(); });
 
 async function toggleCam(id){
   const cur = CAM[id];
@@ -552,7 +676,7 @@ async function save(){
   await refresh();
   // Next patient still to review, else stay on this one (now reviewed).
   const next = VISITS.find(v => v.needs_review && v.encounter_id !== done);
-  if (next){ TAB = 'todo'; syncTabs(); openVisit(next.encounter_id); }
+  if (next){ TAB = 'todo'; syncTabs(); openVisit(next.encounter_id, true); }
   else { await openVisit(done); $('#savedMsg').textContent = 'Saved. Nothing left to review.'; }
 }
 
@@ -569,7 +693,7 @@ function step(d){
 }
 document.addEventListener('keydown', e => {
   if (e.target.closest('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-  if ($('.overlay.on')) return;
+  if ($('.overlay.on') || $('#zoom.on')) return;
   if (e.key === 'j' || e.key === 'J'){ e.preventDefault(); step(1); }
   if (e.key === 'k' || e.key === 'K'){ e.preventDefault(); step(-1); }
 });
@@ -667,7 +791,7 @@ async function boot(){
   const first = filtered()[0];
   if (first) openVisit(first.encounter_id);
 }
-boot();
+if (!window.OLD_BROWSER) boot();
 </script>
 </body>
 </html>

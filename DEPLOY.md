@@ -34,6 +34,14 @@ leaves the hospital.
 | Network | A **fixed IP address** on the **staff** network | Ask IT for a DHCP reservation |
 | Disk encryption | **BitLocker on** | The image-encryption key is a file on this disk |
 
+**Staff computers** need nothing installed except the certificate (step 5),
+plus a browser from mid-2020 or newer: **Edge or Chrome 84+, Firefox 78+**.
+That includes the last versions for Windows 7 and 8.1, so older ward PCs work.
+Internet Explorer and the pre-2020 Edge are not supported, and they show a
+clear message saying so instead of a blank page. Screens from **1024×768**
+upward fit everything a doctor needs without scrolling. All processing
+happens on the server, so the age of a staff PC's processor doesn't matter.
+
 ## Setup, step by step
 
 **1. Install the software** (first time only). Follow `SETUP.md`, steps 0–2,
