@@ -42,8 +42,7 @@ REM 2. Retrain the image-quality model with the hospital's "Ungradable" verdicts
 .venv\Scripts\python learning\retrain_quality.py snapshots\20261022-150000
 
 REM    and re-calibrate the DR model for this hospital from its Refer / Routine verdicts
-.venv\Scripts\python learning
-ecalibrate_dr.py snapshots61022-150000
+.venv\Scripts\python learning\recalibrate_dr.py snapshots\20261022-150000
 
 REM 3. Look, then decide
 .venv\Scripts\python learning\registry.py list quality
