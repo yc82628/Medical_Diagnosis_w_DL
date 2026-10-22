@@ -46,3 +46,6 @@ IDRiD/
 deploy/certs/
 deploy/server.env
 backups/
+
+# Learning-loop snapshots contain decrypted (pseudonymised) patient images.
+snapshots/

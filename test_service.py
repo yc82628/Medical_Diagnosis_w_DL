@@ -9,6 +9,7 @@ import json
 import sqlite3
 
 import cv2
+import numpy as np
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
@@ -554,3 +555,125 @@ def test_https_responses_carry_hsts(env):
     r = TestClient(app, base_url="https://retina.hospital.local").get("/api/health")
     assert "max-age" in r.headers.get("strict-transport-security", "")
     assert "strict-transport-security" not in TestClient(app).get("/api/health").headers
+
+
+# -- maculopathy ---------------------------------------------------------------
+
+def _eye_case(eye, decision, dme=None, verdict=None, cid=None):
+    return {"case_id": cid or f"{eye}{decision}", "eye": eye, "decision": decision,
+            "latest_verdict": verdict, "dme": dme}
+
+
+def _dme(suspected, status, p=0.8):
+    return {"suspected": suspected, "status": status, "probability": p}
+
+
+def test_experimental_maculopathy_is_advice_only():
+    v = encounters.combine([_eye_case("left", "ROUTINE", _dme(True, "experimental")),
+                            _eye_case("right", "ROUTINE", _dme(False, "experimental", 0.1))])
+    assert v["decision"] == "ROUTINE", "an experimental model must not change the decision"
+    assert any("experimental, advice only" in r and "the left eye" in r for r in v["reasons"])
+    assert v["eyes"]["left"]["dme"]["suspected"]
+
+
+def test_validated_maculopathy_refers_a_routine_eye():
+    v = encounters.combine([_eye_case("left", "ROUTINE", _dme(True, "validated")),
+                            _eye_case("right", "ROUTINE", _dme(False, "validated", 0.1))])
+    assert v["decision"] == "REFER"
+    assert any(r.startswith("Maculopathy suspected in the left eye") for r in v["reasons"])
+    assert not any("diabetic retinopathy suspected" in r for r in v["reasons"])
+
+
+def test_grader_verdict_overrides_validated_maculopathy():
+    v = encounters.combine([_eye_case("left", "ROUTINE", _dme(True, "validated"), verdict="ROUTINE"),
+                            _eye_case("right", "ROUTINE", verdict="ROUTINE")])
+    assert v["decision"] == "ROUTINE" and v["final"]
+    assert any("Maculopathy also suspected" in r for r in v["reasons"])
+
+
+class _StubDME:
+    status, version, threshold, status_reasons = "experimental", "stub-dme", 0.5, ["test"]
+
+    def __init__(self):
+        self.calls = 0
+
+    def assess(self, img):
+        self.calls += 1
+        return {"probability": 0.9, "suspected": True, "threshold": 0.5, "grade": 2,
+                "grade_label": "Exudates near the macula", "status": self.status,
+                "model": self.version}
+
+
+def test_service_stores_maculopathy_and_reports_it(tmp_path):
+    from predictor import BasePredictor
+    from config import PreprocessConfig
+
+    class _Model(BasePredictor):                        # a non-demo stub model
+        def __init__(self):
+            super().__init__(PreprocessConfig(), 0.5, None, None, "stub")
+            self.validated = True
+
+        def _score(self, img):
+            return 0.2, np.array([0.3, 0.2, 0.1, 0.05])
+
+    stub = _StubDME()
+    app = create_app(db_path=tmp_path / "d.db", image_root=tmp_path / "di",
+                     data_key=Fernet.generate_key(), predictor=_Model(), dme=stub)
+    auth.create_user(app.state.con, "gus", PW, "grader", iterations=1000)
+    c = client_for(app, "gus")
+    assert c.get("/api/system").json()["dme"]["status"] == "experimental"
+    j = upload(c, eye="left").json()
+    assert j["dme"]["suspected"] and stub.calls == 1
+    e = c.get("/api/encounters/V1").json()
+    # One eye only, so INCOMPLETE -- and experimental maculopathy did not make it REFER.
+    assert e["decision"] == "INCOMPLETE" and e["eyes"]["left"]["dme"]["suspected"]
+    rep = c.get("/api/encounters/V1/fhir").json()
+    comp = [x for o in rep["contained"] for x in o.get("component", [])]
+    assert any("Maculopathy" in x["code"]["text"] and "EXPERIMENTAL" in x["code"]["text"]
+               for x in comp)
+    # A non-retina image is not assessed for maculopathy.
+    rng = np.random.default_rng(1)
+    grey = cv2.cvtColor(rng.integers(60, 200, (600, 600), dtype=np.uint8), cv2.COLOR_GRAY2BGR)
+    j2 = upload(c, eye="right", data=_png(grey)).json()
+    assert j2["dme"] is None and stub.calls == 1
+
+
+def test_dme_status_needs_external_validation():
+    from dme_model import dme_status
+    assert dme_status({"external": None})[0] == "experimental"
+    ok = {"external": {"tp": 40, "fn": 5, "auroc": 0.9, "sensitivity": 0.89, "specificity": 0.7}}
+    assert dme_status(ok)[0] == "validated"
+    weak = {"external": {"tp": 40, "fn": 5, "auroc": 0.8, "sensitivity": 0.89, "specificity": 0.7}}
+    assert dme_status(weak)[0] == "experimental"
+
+
+# -- richer grader labels (learning loop) --------------------------------------
+
+def test_verdict_can_carry_grade_maculopathy_and_findings(env):
+    app, con, *_ = env
+    g = client_for(app, "gus")
+    cid = upload(g).json()["case_id"]
+    r = g.post(f"/api/cases/{cid}/verdict", json={
+        "verdict": "REFER", "grade": 3, "dme": True, "findings": ["glaucoma_suspect", "other"],
+        "note": "cup-disc ratio looks large"})
+    assert r.status_code == 200
+    v = audit.case_detail(con, cid)["verdicts"][-1]
+    assert (v["grade"], v["dme"], json.loads(v["findings"])) == (3, 1, ["glaucoma_suspect", "other"])
+    assert audit.verify_chain(con)["ok"]
+
+
+def test_verdict_label_validation(env):
+    app, *_ = env
+    g = client_for(app, "gus")
+    cid = upload(g).json()["case_id"]
+    assert g.post(f"/api/cases/{cid}/verdict",
+                  json={"verdict": "REFER", "findings": ["unicorn"]}).status_code == 400
+    assert g.post(f"/api/cases/{cid}/verdict",
+                  json={"verdict": "UNGRADABLE", "grade": 2}).status_code == 400
+    assert g.post(f"/api/cases/{cid}/verdict", json={"verdict": "ROUTINE"}).status_code == 200
+
+
+def test_findings_list_offered_to_the_interface(env):
+    app, *_ = env
+    f = client_for(app, "gus").get("/api/system").json()["findings"]
+    assert "glaucoma_suspect" in f and "other" in f

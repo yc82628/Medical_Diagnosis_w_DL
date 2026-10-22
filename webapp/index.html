@@ -132,7 +132,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-b
 .imgbox:hover .zoomhint,.imgbox:focus .zoomhint{opacity:1}
 .zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.8);color:#fff;font:600 12.5px/1.4 var(--sans);
   padding:3px 9px;border-radius:6px;opacity:0;transition:opacity .2s}
-.imgwrap{position:relative;width:min(100%,31vh);margin:0 auto}
+.imgwrap{position:relative;width:min(100%,29vh);margin:0 auto}
 .imgwrap .imgbox{width:100%;padding-top:100%}
 .camchip{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);color:#111;border:1px solid #9AA4B2;
   border-radius:999px;padding:3px 11px;font:700 12.5px/1.5 var(--sans);min-height:28px}
@@ -143,6 +143,13 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-b
 #zoom .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
   padding:10px 16px;background:rgba(0,0,0,.6);color:#fff;font:600 16px var(--sans);z-index:1}
 #zoom .bar button{background:#fff;color:#111;border:0;border-radius:8px;padding:8px 16px;font-weight:700;min-height:40px}
+/* 768px-tall screens: a little less photo (one click from full screen) so a
+   maculopathy line never pushes the decision buttons off screen. */
+@media (max-height:800px){
+  .imgwrap{width:min(100%,24vh)}
+  .eye{gap:7px}
+  .dmeline{margin-top:2px;padding:1px 8px;font-size:13.5px}
+}
 @media (max-height:900px){
   .outcome{padding:9px 14px;margin-bottom:12px}
   .outcome h3{font-size:19px;margin:0}
@@ -158,6 +165,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-b
 .result{font-size:16px}
 .result b{color:var(--c)}
 .result .sub{color:var(--muted);font-size:14.5px;margin-top:2px}
+.dmeline{margin-top:4px;font-size:14px;color:var(--c);background:var(--cbg);border:1px solid var(--cline);border-radius:6px;padding:2px 8px;display:inline-block}
 .warn{background:#EFF4FF;border:1px solid #9DB6F2;border-radius:8px;padding:10px 12px;font-size:15px;color:#1E3A8A}
 .decide .eyebrow{display:block;margin-bottom:7px;font-size:14.5px;color:var(--text)}
 .vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -166,6 +174,11 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-b
 .vb.sel{background:var(--c);border-color:var(--c);color:#fff}
 .vb .sug{position:absolute;top:-10px;right:6px;font-size:11.5px;font-weight:700;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 7px;color:var(--muted);line-height:1.6}
 .graded{font-size:14px;color:var(--muted);margin-top:7px}
+details.more{border-top:0;padding-top:4px}
+details.more summary{font-size:14px;color:var(--review)}
+.findings{border:1px solid var(--line2);border-radius:8px;padding:8px 12px;margin:4px 0 0}
+.findings label{display:block;font-size:14.5px;padding:3px 0}
+.findings input{width:18px;height:18px;vertical-align:-3px;margin-right:6px}
 .missing{display:flex;align-items:center;justify-content:center;min-height:260px;border:2px dashed var(--line);border-radius:9px;color:var(--faint);font-size:15px;text-align:center;padding:20px}
 details{border-top:1px solid var(--line2);padding-top:8px}
 summary{cursor:pointer;color:var(--muted);font-size:14px}
@@ -334,6 +347,7 @@ window.MODERN_OK = (function () {
 const $ = s => document.querySelector(s);
 let SYS = null, ME = null, VISITS = [], TAB = 'todo', CURRENT = null, DETAIL = null;
 let PICK = {};          // eye -> chosen verdict for the open visit
+let EXTRA = {};         // eye -> {grade, dme, findings[]}: optional labels for the learning loop
 let SHOWN = {};         // eye -> case_id currently shown
 const CAM = {};         // case_id -> {url, border, warn} | {error}
 
@@ -469,7 +483,7 @@ function blank(){
 const stacked = () => matchMedia('(max-width:900px)').matches;
 
 async function openVisit(id, reveal = false){
-  CURRENT = id; PICK = {}; SHOWN = {};
+  CURRENT = id; PICK = {}; SHOWN = {}; EXTRA = {};
   renderList();
   const v = await api('/api/encounters/' + encodeURIComponent(id));
   // Full detail (quality, reasons, verdict history) for each image.
@@ -497,8 +511,15 @@ function modelLine(c){
   else if (c.decision === 'REFER') head = `<b class="REFER">Suggests refer</b>`;
   else head = `<b class="ROUTINE">Suggests routine</b>`;
   const grade = c.payload.grade_label ? `Indicative grade: ${esc(c.payload.grade_label)}` : '';
+  // Maculopathy: one line, and only when suspected (space matters on 768px
+  // screens). Experimental = advice (blue); validated = a referral (red).
+  // No percentage here: calibrated scores sit on coarse steps, and "50%" on
+  // the cut-off reads as a coin toss. The number is under Technical details.
+  const d = p.dme;
+  const dme = d && d.suspected ? `<div class="dmeline ${d.status === 'validated' ? 'REFER' : 'MANUAL_REVIEW'}">
+      <b>Maculopathy suspected</b>${d.status === 'validated' ? '' : ' · experimental, advice only'}</div>` : '';
   return `<div class="result" title="Estimated chance of referable diabetic retinopathy">Model: ${head} · ${pct(prob)}
-    ${grade ? `<div class="sub">${grade}</div>` : ''}</div>`;
+    ${grade ? `<div class="sub">${grade}</div>` : ''}${dme}</div>`;
 }
 
 function axis(c){
@@ -524,6 +545,7 @@ function technical(c){
       <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
       <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
       ${c.gradable ? '' : `<tr><td>Why not gradable</td><td style="font-family:var(--sans);text-align:left">${esc((q.reasons || []).map(plainReason).join('; ') || '—')}</td></tr>`}
+      ${c.payload.dme ? `<tr><td>Maculopathy</td><td>${c.payload.dme.suspected ? 'suspected' : 'not suspected'} · ${pct(c.payload.dme.probability)} (${esc(c.payload.dme.status)})</td></tr>` : ''}
       <tr><td>Looks like a retina</td><td>${q.is_fundus == null ? '—' : q.is_fundus ? 'yes' : 'no'}</td></tr>
       <tr><td>Model</td><td>${esc(c.model_version)}${c.validated ? '' : ' (not validated)'}</td></tr>
       <tr><td>Operating point</td><td>${c.operating_point?.toFixed(3) ?? '—'}</td></tr>
@@ -532,6 +554,31 @@ function technical(c){
       <tr><td>Image hash</td><td>${esc(c.image_sha256)}</td></tr>
       ${trail}
     </table></details>`;
+}
+
+// Optional labels that teach the next model version: ICDR grade, maculopathy,
+// other findings. Collapsed by default so they cost nothing when skipped.
+function moreDetails(side){
+  const x = EXTRA[side] || {}, open = EXTRA[side] && EXTRA[side].open;
+  const ungradable = PICK[side] === 'UNGRADABLE';
+  const opt = (v, t, cur) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${t}</option>`;
+  const grades = ['No apparent DR', 'Mild NPDR', 'Moderate NPDR', 'Severe NPDR', 'Proliferative DR'];
+  const f = SYS.findings || {};
+  return `<details class="more" data-side="${side}" ${open ? 'open' : ''}>
+    <summary>More details (optional): grade, maculopathy, other findings</summary>
+    ${ungradable ? '<p class="graded">Not needed for an ungradable image.</p>' : `
+    <div class="grid2" style="margin-top:8px">
+      <label class="field"><span class="eyebrow">ICDR grade</span>
+        <select data-extra="grade" data-side="${side}">${opt('', '—', x.grade ?? '')}${grades.map((g, i) => opt(i, `${i} · ${g}`, x.grade ?? '')).join('')}</select></label>
+      <label class="field"><span class="eyebrow">Maculopathy</span>
+        <select data-extra="dme" data-side="${side}">${opt('', '—', x.dme ?? '')}${opt('true', 'Present', x.dme ?? '')}${opt('false', 'Absent', x.dme ?? '')}</select></label>
+    </div>`}
+    <fieldset class="findings"><legend class="eyebrow">Other findings</legend>
+      ${Object.entries(f).map(([k, t]) => `<label><input type="checkbox" data-finding="${k}" data-side="${side}"
+        ${(x.findings || []).includes(k) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}
+    </fieldset>
+    <p class="graded">Saved with your decision for this eye. These help train and check the next model version.</p>
+  </details>`;
 }
 
 function eyeCard(side, label){
@@ -568,6 +615,7 @@ function eyeCard(side, label){
     }).join('')}</div>
     ${allGraded ? `<div class="graded">Graded <b>${esc(SHORT[latest?.verdict] || '')}</b> by ${esc(latest?.grader || '—')} · ${esc(day(latest?.created_utc))}. Choose again to revise.</div>`
                 : `<div class="graded">${cases.length > 1 ? `Applies to all ${cases.length} images of this eye.` : '&nbsp;'}</div>`}
+    ${moreDetails(side)}
   </div>`;
   return `<div class="eye">
     <div class="top"><h4>${label}</h4>${e ? `<span class="tag ${e.outcome}">${SHORT[e.outcome]}</span>` : ''}
@@ -618,6 +666,17 @@ function wireVisit(){
   });
   st.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => toggleCam(b.dataset.cam));
   st.querySelectorAll('[data-zoom]').forEach(b => b.onclick = () => openZoom(b.dataset.zoom));
+  const ex = side => (EXTRA[side] = EXTRA[side] || {findings: []});
+  st.querySelectorAll('details.more').forEach(d => d.ontoggle = () => { ex(d.dataset.side).open = d.open; });
+  st.querySelectorAll('[data-extra]').forEach(sel => sel.onchange = () => {
+    const v = sel.value, k = sel.dataset.extra;
+    ex(sel.dataset.side)[k] = v === '' ? null : k === 'grade' ? Number(v) : v === 'true';
+  });
+  st.querySelectorAll('[data-finding]').forEach(cb => cb.onchange = () => {
+    const e = ex(cb.dataset.side), set = new Set(e.findings || []);
+    cb.checked ? set.add(cb.dataset.finding) : set.delete(cb.dataset.finding);
+    e.findings = [...set];
+  });
   if ($('#fhirBtn')) $('#fhirBtn').onclick = downloadFhir;
   if ($('#nextBtn')) $('#nextBtn').onclick = () => step(1);
   if ($('#saveBtn')) $('#saveBtn').onclick = save;
@@ -657,6 +716,16 @@ async function toggleCam(id){
   renderVisit();
 }
 
+function verdictBody(side, verdict, note){
+  const x = EXTRA[side] || {}, body = {verdict, note};
+  if (verdict !== 'UNGRADABLE'){
+    if (x.grade != null) body.grade = x.grade;
+    if (x.dme != null) body.dme = x.dme;
+  }
+  if (x.findings && x.findings.length) body.findings = x.findings;
+  return body;
+}
+
 async function save(){
   const btn = $('#saveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
   const note = $('#note').value.trim() || null;
@@ -664,7 +733,7 @@ async function save(){
     for (const [side, verdict] of Object.entries(PICK)){
       for (const c of DETAIL.visit.cases.filter(x => x.eye === side)){
         await api(`/api/cases/${encodeURIComponent(c.case_id)}/verdict`, {method:'POST',
-          headers:{'Content-Type':'application/json'}, body: JSON.stringify({verdict, note})});
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify(verdictBody(side, verdict, note))});
       }
     }
   } catch(e){

@@ -38,6 +38,9 @@ class Prediction:
     # False for the demo heuristic and for a model loaded with the acceptance
     # gate overridden. Stored with every logged prediction.
     validated: bool = False
+    # Maculopathy result (dme_model.DMEPredictor.assess), when that model is
+    # loaded and the image is gradable. Stored in the audit payload.
+    dme: dict | None = None
     latency_ms: float = 0.0
     image_sha256: str = ""
  

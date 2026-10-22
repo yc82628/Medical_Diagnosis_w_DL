@@ -51,6 +51,7 @@ import fhir
 from dicom_io import DicomError, is_dicom, read_dicom
 from predictor import build_predictor
 from quality_model import default_quality_gate, default_quality_note
+from dme_model import default_dme, default_dme_note
 from storage import ImageStore
 
 APP_DIR = Path(__file__).parent
@@ -68,8 +69,10 @@ CLINICAL = ("grader", "admin")
 
 class VerdictIn(BaseModel):
     verdict: str                 # REFER | ROUTINE | UNGRADABLE
-    grade: int | None = None
+    grade: int | None = None     # ICDR 0-4, optional
     note: str | None = None
+    dme: bool | None = None      # maculopathy present, optional
+    findings: list[str] | None = None   # codes from audit.FINDINGS, optional
 
 
 class LoginIn(BaseModel):
@@ -171,17 +174,24 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
                data_key: bytes | None = None, predictor=None,
                load_note: str | None = None, cookie_secure: bool | None = None,
                sso_header: str | None = None,
-               allowed_networks: str | None = None) -> FastAPI:
+               allowed_networks: str | None = None, dme="default") -> FastAPI:
     """
     Build the app. Tests pass temporary paths, a key and a stub predictor;
     production uses the defaults plus environment (DR_DATA_KEY, DR_SSO_HEADER,
     DR_COOKIE_SECURE, DR_ALLOWED_NETWORKS, DR_IDLE_MINUTES).
     """
-    if predictor is None:
+    production = predictor is None
+    if production:
         predictor, load_note = build_predictor()
         # Load the quality model now, not on the first upload: a corrupt
         # checkpoint should stop startup, and the note says which gate runs.
         load_note = f"{load_note} {default_quality_note()}"
+    # Maculopathy model: the default checkpoint in production; tests pass their
+    # own (or nothing) so a local checkpoint never changes test results.
+    if dme == "default":
+        dme = default_dme() if production else None
+        if production:
+            load_note = f"{load_note} {default_dme_note()}"
     load_note = load_note or ""
     con = audit.connect(db_path)
     auth.init_schema(con)
@@ -322,6 +332,9 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
             "validated": bool(predictor.validated),
             "acceptance_failures": list(getattr(predictor, "acceptance_failures", [])),
             "gradcam_available": not predictor.is_demo,
+            "dme": None if dme is None else {"status": dme.status, "model": dme.version,
+                                             "threshold": dme.threshold,
+                                             "why_experimental": dme.status_reasons},
             "note": load_note,
             "model_version": predictor.model_version,
             "preprocess_fingerprint": predictor.pc.fingerprint(),
@@ -333,6 +346,7 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
             "has_evaluation": evaluation is not None,
             "evaluation": evaluation,
             "max_upload_mb": MAX_UPLOAD_MB,
+            "findings": audit.FINDINGS,
             "intended_use": {
                 "decision": "Referral triage for diabetic retinopathy screening",
                 "target": "Referable DR, ICDR grade 2 or worse",
@@ -392,6 +406,11 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
         dev = (device or "").strip() or meta.get("device")
 
         pred = predictor.predict(arr)
+        # Maculopathy only on images the DR path could grade: an ungradable
+        # image gets no confident-looking maculopathy number either.
+        if dme is not None and pred.quality.get("gradable") and not predictor.is_demo:
+            with predictor.lock:            # one model on the GPU at a time
+                pred.dme = dme.assess(arr)
         case_id = audit.log_prediction(
             con, pred, file.filename, patient_id=pid, eye=side, encounter_id=enc,
             device=dev, uploaded_by=user["username"], source_format=fmt)
@@ -496,11 +515,16 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
             raise HTTPException(400, "verdict must be REFER, ROUTINE or UNGRADABLE")
         if body.grade is not None and body.grade not in range(5):
             raise HTTPException(400, "grade must be an ICDR grade 0-4")
+        if body.verdict == "UNGRADABLE" and (body.grade is not None or body.dme is not None):
+            raise HTTPException(400, "An ungradable image cannot also carry a grade.")
         try:
             vid = audit.log_verdict(con, case_id, body.verdict, body.grade,
-                                    user["username"], (body.note or "")[:2000] or None)
+                                    user["username"], (body.note or "")[:2000] or None,
+                                    dme=body.dme, findings=body.findings)
         except KeyError as e:
             raise HTTPException(404, str(e))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         return {"verdict_id": vid, "case_id": case_id, "recorded": True,
                 "grader": user["username"]}
 

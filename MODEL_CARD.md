@@ -1,6 +1,6 @@
 # Model Card — Diabetic Retinopathy Referral Triage
 
-*Generated 2026-10-21 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
+*Generated 2026-10-22 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
 
 > **RESEARCH SOFTWARE — NOT A MEDICAL DEVICE.** No regulatory clearance has been sought or obtained. Not for clinical use.
 
@@ -81,19 +81,6 @@ What this means for deployment:
 - IDRiD has no patient ids, so the split is by image: if one patient contributed both eyes, they may sit on opposite halves, which flatters the evaluation half slightly.
 - The evaluation half is small: 161 referable images, so its sensitivity has a 95% interval of 0.823–0.923 (Wilson). The point estimate clears the gate; the interval does not rule out a true sensitivity below the 0.85 floor. Confirm on a larger sample from the deploying site before any use.
 
-## Domain-shift experiments
-
-Every configuration tried to close the external gap, failures included (`domain_experiments.py`). Scored on DeepDRiD validation and the external **calibration half** only — never on the internal test or the external evaluation half. *src cal*: calibrator and threshold from DeepDRiD validation, applied unchanged. *site cal*: refitted on the site, estimated by 2-fold cross-fitting inside the calibration half (mean ± sd over 5 shuffles). Each configuration was trained once, with no replicate run, so differences of about 0.02 AUROC or less should not be read as real.
-
-| Experiment | TTA | Val AUROC | Val spec@sens90 | Site AUROC | Sens (src cal) | ECE (src cal) | Sens (site cal) | Spec (site cal) | ECE (site cal) |
-|---|---|---|---|---|---|---|---|---|---|
-| E0 baseline (B3 512, mild aug) | none | 0.942 | 0.886 | 0.888 | 0.789 | 0.132 | 0.906 ± 0.008 | 0.575 | 0.066 ± 0.023 |
-| E0 baseline + TTA | d8 | 0.954 | 0.905 | 0.914 | 0.826 | 0.127 | 0.907 ± 0.009 | 0.638 | 0.069 ± 0.010 |
-| E1 B3 512, strong aug | none | 0.960 | 0.924 | 0.951 | 0.845 | 0.091 | 0.919 ± 0.006 | 0.825 | 0.056 ± 0.015 |
-| E1 B3 512, strong aug | d8 | 0.964 | 0.918 | 0.959 | 0.851 | 0.093 | 0.918 ± 0.010 | 0.831 | 0.048 ± 0.015 |
-
-Configurations started or planned but not completed have no result and are not in the table; `README.md` (*Current results*) lists them.
-
 ## Acceptance gate
 
 **PASSED** every criterion in `config.AcceptanceConfig`. The service will load this model.
@@ -140,6 +127,26 @@ Classical checks alone, against human gradability labels on 2000 images (`valida
 | Blur threshold in force when measured | 12.0 |
 
 They barely separate human-accepted from human-rejected images, so they are set to remove gross failures only.
+
+## Maculopathy (experimental)
+
+Exudates within one disc diameter of the macula centre: IDRiD's *risk of macular edema* grade 2, the usual screening proxy. Not an OCT diagnosis of macular oedema.
+
+Trained on IDRiD (514 gradable images, CC BY 4.0), starting from the DR model's feature extractor. Measured by 5-fold cross-validation: each fold chose its epoch and threshold on its own inner validation split, then scored its held-out fold (test-time augmentation: d8).
+
+| Out-of-fold metric | Value |
+|---|---|
+| Images / referable maculopathy | 514 / 243 (0.473) |
+| AUROC | 0.963 (95% CI 0.947–0.978) |
+| Sensitivity | 0.918 (95% CI 0.881–0.950) |
+| Specificity | 0.878 (95% CI 0.837–0.916) |
+| Missed referable maculopathy | **20** of 243 |
+
+**Status: experimental.** Cross-validation within one clinic cannot show what happens at another, and no second dataset with these labels is available here. Until an external, different-site evaluation passes, the platform shows the result to graders as advice only; it never changes a referral decision.
+
+In IDRiD every eye with referable maculopathy also has DR grade 2 or worse, so the DR model already refers them: here the maculopathy result adds the *reason* (central vision at risk, often more urgent) rather than extra referrals. Eyes with maculopathy but mild DR are exactly where it would add referrals, and this data has none, so that case is untested.
+
+No patient identifiers in IDRiD: if a patient contributed both eyes, they may sit in different folds, making the cross-validated figures slightly optimistic.
 
 ## Abstention and coverage
 

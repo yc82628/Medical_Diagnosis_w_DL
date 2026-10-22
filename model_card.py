@@ -106,6 +106,61 @@ def _ci_pct(d):
     return f"{100 * d['point']:.1f}% ({100 * d['lo']:.1f}–{100 * d['hi']:.1f})"
 
 
+def _dme_section(eval_path="artifacts/dme_eval.json",
+                 checkpoint="checkpoints/dme_model.pt") -> list[str]:
+    """Maculopathy model: cross-validated performance and its status."""
+    p = Path(eval_path)
+    if not p.exists():
+        return []
+    m = json.loads(p.read_text())
+    cv = (m.get("cross_validation") or {})
+    o = cv.get("oof") or {}
+    ci = lambda d: (f"{d['point']:.3f} (95% CI {d['lo']:.3f}–{d['hi']:.3f})"
+                    if d and d.get("point") is not None else "—")
+    status = m.get("status", "experimental")
+    L = ["## Maculopathy (experimental)" if status != "validated" else "## Maculopathy", "",
+         "Exudates within one disc diameter of the macula centre: IDRiD's "
+         "*risk of macular edema* grade 2, the usual screening proxy. Not an OCT "
+         "diagnosis of macular oedema.", "",
+         f"Trained on IDRiD ({m.get('n_train', '—')} gradable images, CC BY 4.0), "
+         f"starting from the DR model's feature extractor. Measured by "
+         f"{cv.get('folds', '—')}-fold cross-validation: each fold chose its epoch "
+         f"and threshold on its own inner validation split, then scored its "
+         f"held-out fold (test-time augmentation: {cv.get('tta', '—')}).", "",
+         "| Out-of-fold metric | Value |", "|---|---|",
+         f"| Images / referable maculopathy | {o.get('n', '—')} / {o.get('positives', '—')} "
+         f"({_fmt(o.get('prevalence'))}) |",
+         f"| AUROC | {ci(o.get('auroc_ci'))} |",
+         f"| Sensitivity | {ci(o.get('sensitivity_ci'))} |",
+         f"| Specificity | {ci(o.get('specificity_ci'))} |",
+         f"| Missed referable maculopathy | **{o.get('fn', '—')}** of {o.get('positives', '—')} |",
+         "",
+         f"**Status: {status}.** "]
+    if status != "validated":
+        L[-1] += ("Cross-validation within one clinic cannot show what happens at "
+                  "another, and no second dataset with these labels is available "
+                  "here. Until an external, different-site evaluation passes, the "
+                  "platform shows the result to graders as advice only; it never "
+                  "changes a referral decision.")
+    L += ["",
+          "In IDRiD every eye with referable maculopathy also has DR grade 2 or "
+          "worse, so the DR model already refers them: here the maculopathy result "
+          "adds the *reason* (central vision at risk, often more urgent) rather than "
+          "extra referrals. Eyes with maculopathy but mild DR are exactly where it "
+          "would add referrals, and this data has none, so that case is untested.",
+          "",
+          "No patient identifiers in IDRiD: if a patient contributed both eyes, they "
+          "may sit in different folds, making the cross-validated figures slightly "
+          "optimistic.", ""]
+    ck = Path(checkpoint)
+    if ck.exists() and m.get("checkpoint_sha256"):
+        from predictor import file_sha256
+        if file_sha256(ck) != m["checkpoint_sha256"]:
+            L += ["> **Stale:** these figures were measured for a different maculopathy "
+                  "checkpoint than the one now in `checkpoints/`.", ""]
+    return L
+
+
 def _quality_section(model_eval="artifacts/quality_model_eval.json",
                      classical_eval="artifacts/quality_gate_validation.json",
                      checkpoint=None,
@@ -480,6 +535,7 @@ def build(eval_path="artifacts/evaluation.json", out_path="MODEL_CARD.md") -> st
 
     # ---- quality gate validation ------------------------------------------
     L += _quality_section()
+    L += _dme_section()
 
  
     # ---- abstention --------------------------------------------------------

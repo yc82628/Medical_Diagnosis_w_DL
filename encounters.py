@@ -16,6 +16,10 @@ Visit outcome:
     else an eye missing (only one eye imaged)   -> INCOMPLETE
     else (both eyes ROUTINE)                    -> ROUTINE
 
+Maculopathy (dme_model): a VALIDATED model's finding turns a model-only
+ROUTINE eye into REFER, with its own reason; an EXPERIMENTAL model's finding
+only adds advice for the grader. A grader's verdict always stands.
+
 `final` is True only when every eye's outcome comes from a human verdict.
 """
 from __future__ import annotations
@@ -57,6 +61,29 @@ def combine(cases: list[dict]) -> dict:
         eyes[eye] = {"outcome": outcome, "source": source, "case_id": case_id,
                      "all_human": all(r[1] == "grader" for r in results)}
 
+    # Maculopathy, per eye: suspected if any image of that eye is. A VALIDATED
+    # maculopathy model turns a model-only ROUTINE eye into REFER; an
+    # EXPERIMENTAL one is advice for the grader and changes nothing. A grader's
+    # verdict always stands.
+    dme_eyes: dict[str, dict] = {}
+    for c in cases:
+        eye, d = normalise_eye(c.get("eye")), c.get("dme")
+        if eye is None or not d:
+            continue
+        rec = dme_eyes.setdefault(eye, {"suspected": False, "probability": 0.0,
+                                        "status": d.get("status", "experimental")})
+        rec["suspected"] = rec["suspected"] or bool(d.get("suspected"))
+        rec["probability"] = max(rec["probability"], float(d.get("probability") or 0.0))
+    dme_referred = []
+    for eye, info in dme_eyes.items():
+        if eye not in eyes:
+            continue
+        eyes[eye]["dme"] = info
+        if (info["suspected"] and info["status"] == "validated"
+                and eyes[eye]["source"] == "model" and eyes[eye]["outcome"] == ROUTINE):
+            eyes[eye]["outcome"] = REFER
+            dme_referred.append(eye)
+
     reasons = []
     outcomes = {e: d["outcome"] for e, d in eyes.items()}
 
@@ -67,8 +94,12 @@ def combine(cases: list[dict]) -> dict:
 
     if REFER in outcomes.values():
         decision = REFER
-        reasons.append("Referable diabetic retinopathy suspected in "
-                       + which([e for e, o in outcomes.items() if o == REFER]) + ".")
+        dr_eyes = [e for e, o in outcomes.items() if o == REFER and e not in dme_referred]
+        if dr_eyes:
+            reasons.append("Referable diabetic retinopathy suspected in " + which(dr_eyes) + ".")
+        if dme_referred:
+            reasons.append("Maculopathy suspected in " + which(dme_referred)
+                           + " (exudates near the centre of vision).")
     elif MANUAL in outcomes.values():
         decision = MANUAL
         reasons.append("A grader needs to decide on "
@@ -82,6 +113,15 @@ def combine(cases: list[dict]) -> dict:
         decision = ROUTINE
         reasons.append("No referable diabetic retinopathy detected in either eye. "
                        "This does not exclude other eye disease.")
+
+    validated_dme = [e for e, i in dme_eyes.items()
+                     if i["suspected"] and i["status"] == "validated" and e not in dme_referred]
+    if validated_dme:
+        reasons.append("Maculopathy also suspected in " + which(validated_dme) + ".")
+    advice = [e for e, i in dme_eyes.items() if i["suspected"] and i["status"] != "validated"]
+    if advice:
+        reasons.append("Maculopathy check (experimental, advice only): exudates near the "
+                       "macula may be present in " + which(advice) + ". Please assess.")
 
     unlabelled = sum(1 for c in cases if normalise_eye(c.get("eye")) is None)
     if unlabelled:

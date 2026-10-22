@@ -82,3 +82,21 @@ def test_card_explains_a_site_calibrated_profile(tmp_path):
     assert "not plug-and-play" in text
     assert "Test-time augmentation: **d8**" in text
     assert "nothing was refitted" not in text
+
+
+def test_dme_section_reports_cv_and_experimental_status(tmp_path):
+    ci = {"point": 0.9, "lo": 0.85, "hi": 0.94, "n_boot": 10}
+    ev = tmp_path / "dme_eval.json"
+    ev.write_text(json.dumps({
+        "status": "experimental", "n_train": 514, "checkpoint_sha256": "abc",
+        "cross_validation": {"folds": 5, "tta": "d8", "oof": {
+            "n": 514, "positives": 243, "prevalence": 0.47, "fn": 20,
+            "auroc_ci": ci, "sensitivity_ci": ci, "specificity_ci": ci}}}))
+    ck = tmp_path / "dme_model.pt"
+    ck.write_bytes(b"other")
+    text = "\n".join(model_card._dme_section(str(ev), str(ck)))
+    assert "## Maculopathy (experimental)" in text
+    assert "| AUROC | 0.900 (95% CI 0.850–0.940) |" in text
+    assert "advice only" in text and "never" in text
+    assert "**20** of 243" in text and "**Stale:**" in text
+    assert model_card._dme_section(str(tmp_path / "none.json")) == []

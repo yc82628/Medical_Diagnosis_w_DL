@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS verdicts (
     grade         INTEGER,
     agreed        INTEGER,
     note          TEXT,
+    dme           INTEGER,
+    findings      TEXT,
     FOREIGN KEY (case_id) REFERENCES predictions(case_id)
 );
 
@@ -94,6 +96,9 @@ _MIGRATIONS = {
     "predictions": ["patient_id TEXT", "eye TEXT", "encounter_id TEXT",
                     "device TEXT", "uploaded_by TEXT", "source_format TEXT",
                     "validated INTEGER"],
+    # Grader labels for the learning loop: maculopathy present (1/0, NULL if
+    # not recorded) and other findings (JSON list of codes).
+    "verdicts": ["dme INTEGER", "findings TEXT"],
 }
 
 _POST_MIGRATION = """
@@ -283,8 +288,21 @@ def log_prediction(con, pred, filename: str | None = None, *, patient_id=None,
     return case_id
 
 
+# Other findings a grader can record. They do not change the DR decision; they
+# build the labelled data a future model for these conditions would need, and
+# the monitoring view counts them.
+FINDINGS = {
+    "glaucoma_suspect": "Glaucoma suspected (optic disc)",
+    "amd": "Age-related macular degeneration",
+    "rvo": "Retinal vein occlusion",
+    "hypertensive": "Hypertensive retinopathy",
+    "other": "Other finding (described in the note)",
+}
+
+
 def log_verdict(con, case_id: str, verdict: str, grade=None, grader=None,
-                note=None) -> str:
+                note=None, dme: bool | None = None,
+                findings: list[str] | None = None) -> str:
     """
     Record a human decision. Never overwrites: a revised opinion is a new row,
     so the sequence of clinical reasoning stays reconstructable.
@@ -300,10 +318,16 @@ def log_verdict(con, case_id: str, verdict: str, grade=None, grader=None,
             agreed = int(verdict == row["decision"])
 
         vid = uuid.uuid4().hex[:12]
+        bad = [f for f in (findings or []) if f not in FINDINGS]
+        if bad:
+            raise ValueError(f"Unknown finding(s): {bad}")
         con.execute(
             """INSERT INTO verdicts (verdict_id, case_id, created_utc, grader,
-                 verdict, grade, agreed, note) VALUES (?,?,?,?,?,?,?,?)""",
-            (vid, case_id, _now(), grader, verdict, grade, agreed, note),
+                 verdict, grade, agreed, note, dme, findings)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (vid, case_id, _now(), grader, verdict, grade, agreed, note,
+             None if dme is None else int(bool(dme)),
+             json.dumps(sorted(set(findings))) if findings else None),
         )
         stored = dict(con.execute("SELECT * FROM verdicts WHERE verdict_id=?",
                                   (vid,)).fetchone())
@@ -358,15 +382,23 @@ def case_detail(con, case_id: str) -> dict | None:
 
 
 def encounter_cases(con, encounter_id: str) -> list[dict]:
-    """Every image in one screening visit, each with its latest human verdict."""
+    """
+    Every image in one screening visit, each with its latest human verdict and
+    its maculopathy result (read from the stored payload; None if not assessed).
+    """
     with con.lock:
         rows = con.execute(
-            f"""SELECT {_CASE_COLUMNS},
+            f"""SELECT {_CASE_COLUMNS}, p.payload_json,
                       {_LATEST_VERDICT.format(col='verdict')} AS latest_verdict,
                       {_LATEST_VERDICT.format(col='grader')} AS latest_grader
                  FROM predictions p WHERE p.encounter_id = ?
                 ORDER BY p.created_utc""", (encounter_id,)).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["dme"] = json.loads(d.pop("payload_json") or "{}").get("dme")
+        out.append(d)
+    return out
 
 
 def list_visits(con, limit: int = 200) -> list[dict]:

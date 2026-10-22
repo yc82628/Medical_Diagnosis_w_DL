@@ -47,8 +47,11 @@ assistive; there is no autonomous mode.
 - Detection of non-DR pathology — glaucoma, AMD, retinal detachment, tumours.
   **The model has never been trained to see these and will not flag them.**
   A `ROUTINE` output means "no referable DR detected", never "this eye is healthy."
-- Diabetic macular oedema, which frequently requires OCT and cannot be reliably
-  determined from a single fundus photograph
+- **Diagnosis** of diabetic macular oedema, which needs OCT. The platform
+  includes an *experimental* maculopathy check (hard exudates near the macula,
+  the usual screening proxy). It is shown to graders as advice only and never
+  changes a referral decision until it passes an external evaluation; see
+  `MODEL_CARD.md`.
 - Any imaging modality other than colour fundus photography
 - Paediatric patients
 - Images from camera types not represented in the validation data
@@ -116,3 +119,4 @@ work were ever taken down that path.
 | _(initial)_ | Scope defined: referral triage, ICDR ≥ 2 | Standard screening threshold |
 | 2026-10-18 | Visit-level output added: both eyes combined (refer if either is referable; `INCOMPLETE` if only one eye screened; grader verdicts override the model). Per-image outputs unchanged. | Screening refers patients, not images. Leaving the combination to the reader is an unmanaged step. |
 | 2026-10-18 | Models must pass `AcceptanceConfig` before they are served. | Section 4's metric is now enforced at load time, not only reported. |
+| 2026-10-22 | Experimental maculopathy check added (IDRiD-trained, cross-validated). Advice to graders only; may affect the referral decision only after passing an external, different-site evaluation. | Many programmes refer on maculopathy, and the ophthalmologist needs the reason for a referral. One site's data cannot validate it. |

@@ -63,6 +63,14 @@ def _observation(case: dict, outcome: str, source: str) -> dict:
             "valueQuantity": {"value": round(float(case["probability"]), 4),
                               "unit": "probability"},
         }]
+    d = case.get("dme")
+    if d:
+        status = ("screening model" if d.get("status") == "validated"
+                  else "EXPERIMENTAL model, advice only")
+        obs.setdefault("component", []).append({
+            "code": {"text": f"Maculopathy, exudates near the macula ({status})"},
+            "valueCodeableConcept": {"text": "Suspected" if d.get("suspected") else "Not suspected"},
+        })
     if case.get("latest_grader") and source == "grader":
         obs["performer"] = [{"display": case["latest_grader"]}]
     return obs
