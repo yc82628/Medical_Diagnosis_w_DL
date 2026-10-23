@@ -12,186 +12,242 @@
   them: color-mix(), aspect-ratio, the `inset` shorthand. test_compat.py
   enforces this.
 
-  Light, high-contrast design for older monitors and readers: text colours
-  meet WCAG AA (4.5:1) on white, base text is 16px, touch/click targets are
-  at least 40px tall, and status is always written in words, never colour alone.
+  Layout follows the familiar radiology-worklist pattern: a teal navigation
+  sidebar, a filter bar, a sortable worklist table, and the patient view.
+  Dark by default (easier on the eyes when reading photos, as in reading
+  rooms); "Light mode" in the sidebar for bright rooms and older monitors.
+  Both themes keep text at WCAG AA (4.5:1) or better, base text is 16px,
+  click targets are at least 40px tall, and status is always written in
+  words, never colour alone. Every colour is a token below.
 */
 :root{
-  --ink:#F3F5F8; --panel:#FFFFFF; --raise:#EEF1F5; --line:#C6CED8; --line2:#E3E8EE;
-  --text:#111827; --muted:#374151; --faint:#5B6573;
-  --brand:#9A4A06; --brandbg:#B45309;
-  --refer:#B42318; --routine:#067647; --review:#1D4ED8; --incomplete:#4B5563;
+  --bg:#0F1214; --panel:#171B1F; --raise:#20262B; --line:#323B43; --line2:#262D33;
+  --text:#ECEFF1; --muted:#B7C0C8; --faint:#97A3AE;
+  --accent:#34C391; --accenthi:#4FD6A6; --ontext:#062A1D; --link:#8CCBFF; --sel:#1C2B33;
+  --nav:#3AAE93; --nav2:#2E957D; --navtext:#04211B; --navhead:#0A3A30; --navon:#0D4A3E; --navontext:#FFFFFF;
+  --refer:#FF948B; --referbg:#3A1817; --referline:#7E302A;
+  --routine:#62D9A2; --routinebg:#0F2E21; --routineline:#25663F;
+  --review:#94B6FF; --reviewbg:#17243F; --reviewline:#33508C;
+  --incomplete:#C7CDD5; --incompletebg:#24282D; --incompleteline:#4A525B;
+  --warn:#FFD27A; --warnbg:#3A2B0C; --warnline:#8A6418;
+  --onc:#0F1214;       /* text on a solid status colour */
   --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
   --mono:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;
   --fs:1;              /* text size: 1 normal, 1.15 with "Larger text" */
+}
+:root.light{
+  --bg:#F3F5F8; --panel:#FFFFFF; --raise:#EEF1F5; --line:#C6CED8; --line2:#E3E8EE;
+  --text:#111827; --muted:#374151; --faint:#5B6573;
+  --accent:#0F7A5C; --accenthi:#0B6A4F; --ontext:#FFFFFF; --link:#1D4ED8; --sel:#E6F4EF;
+  --nav:#3AAE93; --nav2:#2E957D;
+  --refer:#B42318; --referbg:#FEF3F2; --referline:#F5A097;
+  --routine:#067647; --routinebg:#ECFDF3; --routineline:#7FD4A8;
+  --review:#1D4ED8; --reviewbg:#EFF4FF; --reviewline:#9DB6F2;
+  --incomplete:#4B5563; --incompletebg:#F2F4F7; --incompleteline:#C3C9D2;
+  --warn:#7A3A06; --warnbg:#FFF7E6; --warnline:#F3C77A;
+  --onc:#FFFFFF;
 }
 :root.big{--fs:1.15}
 /* Read by screen readers, not shown. */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--ink);color:var(--text);font:calc(16px*var(--fs))/1.5 var(--sans)}
+body{margin:0;background:var(--bg);color:var(--text);font:calc(16px*var(--fs))/1.5 var(--sans)}
 button{font:inherit;cursor:pointer;color:inherit}
 input,select{font:inherit;color:var(--text)}
-.num{font-family:var(--mono)}
 .eyebrow{font-size:calc(13px*var(--fs));font-weight:600;color:var(--muted)}
-:focus-visible{outline:3px solid var(--review);outline-offset:2px}
+:focus-visible{outline:3px solid var(--link);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* Status colours: text, tint and border per state (no color-mix). */
-.REFER{--c:var(--refer);--cbg:#FEF3F2;--cline:#F5A097}
-.ROUTINE{--c:var(--routine);--cbg:#ECFDF3;--cline:#7FD4A8}
-.MANUAL_REVIEW,.UNGRADABLE{--c:var(--review);--cbg:#EFF4FF;--cline:#9DB6F2}
-.INCOMPLETE{--c:var(--incomplete);--cbg:#F2F4F7;--cline:#C3C9D2}
-.tag{display:inline-block;font-size:calc(13px*var(--fs));font-weight:700;padding:2px 10px;border-radius:999px;
-  color:var(--c);background:var(--cbg);border:1px solid var(--cline);white-space:nowrap;line-height:1.5}
+.REFER{--c:var(--refer);--cbg:var(--referbg);--cline:var(--referline)}
+.ROUTINE{--c:var(--routine);--cbg:var(--routinebg);--cline:var(--routineline)}
+.MANUAL_REVIEW,.UNGRADABLE{--c:var(--review);--cbg:var(--reviewbg);--cline:var(--reviewline)}
+.INCOMPLETE{--c:var(--incomplete);--cbg:var(--incompletebg);--cline:var(--incompleteline)}
+.tag{display:inline-block;font-size:calc(13px*var(--fs));font-weight:700;padding:1px 10px;border-radius:6px;
+  color:var(--c);background:var(--cbg);border:1px solid var(--cline);white-space:nowrap;line-height:1.6}
 
-/* ---------- safety strip ---------- */
-#strip{padding:8px 20px;font-size:calc(14px*var(--fs));color:var(--muted);background:#E9EDF2;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+/* ---------- page frame: sidebar + main ---------- */
+body{display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+body.navhidden{grid-template-columns:0 minmax(0,1fr)}
+body.navhidden #nav{display:none}
+@media (max-width:1100px){body{grid-template-columns:196px minmax(0,1fr)}}
+#nav{grid-column:1}
+main{grid-column:2;display:flex;flex-direction:column;min-width:0;min-height:0}
+#stage{flex:1;min-height:0;overflow-y:auto}
+
+/* ---------- sidebar ---------- */
+#nav{background:linear-gradient(180deg,var(--nav),var(--nav2));color:var(--navtext);display:flex;flex-direction:column;
+  min-height:0;overflow-y:auto;padding:14px 10px 12px}
+.brand{display:flex;align-items:center;gap:9px;padding:2px 8px 12px}
+.brand .mark{width:30px;height:30px;border-radius:50%;background:#062A22;display:flex;align-items:center;justify-content:center;flex:none}
+.brand .mark i{width:12px;height:12px;border-radius:50%;background:var(--nav);box-shadow:0 0 0 3px #062A22,0 0 0 5px var(--nav)}
+.brand b{display:block;font-size:calc(17px*var(--fs));line-height:1.2}
+.brand small{display:block;font-size:calc(12px*var(--fs));font-weight:600;color:var(--navhead)}
+.navsec{font-size:calc(12px*var(--fs));font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--navhead);margin:12px 8px 4px}
+.navbtn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:8px;
+  padding:8px 10px;min-height:40px;font-size:calc(15px*var(--fs));font-weight:600;color:var(--navtext)}
+.navbtn svg{width:18px;height:18px;flex:none}
+.navbtn:hover{background:rgba(255,255,255,.22)}
+.navbtn.on{background:var(--navon);color:var(--navontext)}
+.navbtn .count{margin-left:auto;font-size:calc(13px*var(--fs));font-weight:800;background:rgba(6,42,34,.14);border-radius:999px;padding:0 8px;min-width:26px;text-align:center}
+.navbtn.on .count{background:rgba(255,255,255,.18)}
+.navbtn.add{background:#062A22;color:#FFFFFF;margin:4px 0}
+.navbtn.add:hover{background:#0D4A3E}
+.navfoot{margin-top:auto;padding:12px 8px 0;border-top:1px solid rgba(6,42,34,.25)}
+.navfoot .who{font-size:calc(14px*var(--fs));font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navfoot .role{font-size:calc(13px*var(--fs));color:var(--navhead);margin-bottom:6px}
+
+/* ---------- top strip (in the main column) ---------- */
+#strip{flex:none;display:flex;align-items:center;gap:12px;padding:3px 18px 3px 8px;font-size:calc(14px*var(--fs));
+  color:var(--muted);background:var(--panel);border-bottom:1px solid var(--line);white-space:nowrap}
+/* One line on a normal day (full text on hover); a demo or unvalidated
+   warning wraps instead, so it is never cut off. */
+#stripText{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#strip.DEMO,#strip.UNVALIDATED{flex-wrap:wrap;white-space:normal}
 #strip b{color:var(--text);font-weight:700}
-#strip.DEMO{background:#FFF7E6;border-color:#F3C77A;color:#7A3A06} #strip.DEMO b{color:#7A3A06}
-#strip.UNVALIDATED{background:#FEF3F2;border-color:#F5A097;color:#8A1C12} #strip.UNVALIDATED b{color:#8A1C12}
+#strip.DEMO{background:var(--warnbg);border-color:var(--warnline);color:var(--warn)} #strip.DEMO b{color:var(--warn)}
+#strip.UNVALIDATED{background:var(--referbg);border-color:var(--referline);color:var(--refer)} #strip.UNVALIDATED b{color:var(--refer)}
 #strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:calc(14px*var(--fs))}
 #stripNote{flex-basis:100%;font-size:calc(13.5px*var(--fs));display:none}
 #stripNote.on{display:block}
-
-/* ---------- top bar ---------- */
-header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--panel);border-bottom:2px solid var(--line);flex-wrap:wrap}
-header h1{font-size:calc(20px*var(--fs));margin:0;font-weight:700}
-.pill{font-size:calc(13px*var(--fs));font-weight:700;padding:3px 11px;border-radius:999px;border:1px solid}
-.pill.MODEL{color:var(--routine);background:#ECFDF3;border-color:#7FD4A8}
-.pill.UNVALIDATED{color:var(--refer);background:#FEF3F2;border-color:#F5A097}
-.pill.DEMO{color:#7A3A06;background:#FFF7E6;border-color:#F3C77A}
+.iconbtn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--raise);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--text)}
+.iconbtn svg{width:18px;height:18px}
+.iconbtn:hover{border-color:var(--accent)}
+.pill{font-size:calc(13px*var(--fs));font-weight:700;padding:2px 11px;border-radius:999px;border:1px solid;margin-left:auto;white-space:nowrap}
+.pill.MODEL{color:var(--routine);background:var(--routinebg);border-color:var(--routineline)}
+.pill.UNVALIDATED{color:var(--refer);background:var(--referbg);border-color:var(--referline)}
+.pill.DEMO{color:var(--warn);background:var(--warnbg);border-color:var(--warnline)}
 .spacer{flex:1}
-.btn{background:var(--panel);border:1px solid var(--line);padding:8px 15px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:40px;font-weight:600}
-.btn:hover:not(:disabled){border-color:var(--text);background:var(--raise)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.primary{background:var(--brandbg);border-color:var(--brandbg);color:#fff}
-.btn.primary:hover:not(:disabled){background:#92400E;border-color:#92400E}
-.btn.small{padding:5px 12px;font-size:calc(14px*var(--fs));min-height:34px}
-.who{font-size:calc(14px*var(--fs));color:var(--muted)}
 
-/* ---------- layout ---------- */
-/* The page is one screen tall and the worklist and visit scroll inside it,
-   whatever the height of the strip and header ("Larger text" makes them taller). */
-body{display:flex;flex-direction:column}
-main{display:grid;grid-template-columns:320px 1fr;grid-template-rows:minmax(0,1fr);flex:1;min-height:420px}
-#strip,header{flex:none}
-#rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
-#stage{overflow-y:auto;min-height:0}
-/* 1024x768 monitors: a slimmer list keeps both eyes readable. */
-@media (max-width:1100px){main{grid-template-columns:270px 1fr}:root.big .who{display:none}}
-@media (max-height:800px){:root.big .imgwrap{width:min(100%,18vh)}}
-@media (max-width:800px){body{display:block}main{grid-template-columns:1fr;grid-template-rows:auto;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
-@media (max-width:800px), (pointer:coarse){.railfoot,kbd{display:none}}
-@media (max-width:600px){
-  #strip{padding:6px 12px;font-size:calc(13px*var(--fs))}
-  header{padding:8px 12px;gap:8px}
-  header h1{font-size:calc(17px*var(--fs))}
-  .who{display:none}
-  .wrap{padding:14px 12px 96px}
-}
+/* ---------- buttons ---------- */
+.btn{background:var(--raise);border:1px solid var(--line);padding:8px 15px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:40px;font-weight:600;color:var(--text)}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ontext)}
+.btn.primary:hover:not(:disabled){background:var(--accenthi);border-color:var(--accenthi)}
+.btn.ghost{background:none;border-color:var(--accent);color:var(--accent)}
+.btn.small{padding:5px 12px;font-size:calc(14px*var(--fs));min-height:34px}
+kbd{font-family:var(--mono);font-size:calc(12px*var(--fs));border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel)}
+@media (max-width:800px), (pointer:coarse){kbd{display:none}}
 
 /* ---------- worklist ---------- */
-.tabs{display:flex;gap:6px;padding:12px 12px 8px}
-.tabs button{flex:1 1 auto;white-space:nowrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 4px;font-size:calc(14px*var(--fs));font-weight:600;color:var(--muted);min-height:38px}
-.tabs button.on{background:var(--text);color:#fff;border-color:var(--text)}
-.search{padding:0 12px 10px}
-.search input{width:100%;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs))}
-#list{overflow-y:auto;flex:1;min-height:0;border-top:1px solid var(--line2)}
-.visit{display:block;width:100%;text-align:left;background:var(--panel);border:0;border-bottom:1px solid var(--line2);padding:12px 14px 12px 12px;border-left:5px solid var(--c)}
-.visit:hover{background:var(--raise)}
-.visit.on{background:#FFF4E5}
-.visit .row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.visit .pid{font-weight:700;font-size:calc(16px*var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:calc(13.5px*var(--fs));color:var(--faint);flex-wrap:wrap}
-.eyedot{display:inline-flex;align-items:center;gap:3px;font-weight:600;position:relative}  /* anchors .sr inside the scrolling list */
-.eyedot i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
-.eyedot.none{--c:#D0D5DD}
-.pending{color:var(--brand);font-weight:600}
-.empty-list{padding:28px 18px;color:var(--faint);font-size:calc(15px*var(--fs));text-align:center}
-.railfoot{border-top:1px solid var(--line2);padding:9px 14px;font-size:calc(13px*var(--fs));color:var(--faint)}
-kbd{font-family:var(--mono);font-size:calc(12px*var(--fs));border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel)}
+.wrap{padding:18px 24px 24px;max-width:1240px}
+.pagehead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.pagehead h2{margin:0;font-size:calc(22px*var(--fs))}
+.total{font-size:calc(14px*var(--fs));color:var(--muted)}
+.total b{display:inline-block;background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:0 8px;margin-left:4px;color:var(--text)}
+.filters{display:grid;grid-template-columns:minmax(160px,1.4fr) repeat(2,minmax(140px,1fr)) auto;gap:12px 18px;align-items:end;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:3px;font-size:calc(13.5px*var(--fs));font-weight:600;color:var(--muted)}
+.f input,.f select{background:transparent;border:0;border-bottom:1px solid var(--line);padding:7px 2px;min-height:38px;font-size:calc(15px*var(--fs));color:var(--text)}
+.f select option{background:var(--panel);color:var(--text)}
+.f input:focus,.f select:focus{border-bottom-color:var(--accent);outline:none}
+.tablecard{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tablescroll{overflow-x:auto}
+table.wl{width:100%;border-collapse:collapse;font-size:calc(15px*var(--fs))}
+table.wl th{text-align:left;font-size:calc(13.5px*var(--fs));font-weight:700;color:var(--muted);padding:0;border-bottom:1px solid var(--line);white-space:nowrap}
+table.wl th .sort{background:none;border:0;padding:10px 12px;font-weight:700;color:inherit;display:inline-flex;align-items:center;gap:5px;min-height:40px}
+table.wl th .sort:hover{color:var(--text)}
+table.wl th .sort i{font-style:normal;color:var(--accent);font-size:calc(12px*var(--fs))}
+table.wl th.plain{padding:10px 12px}
+table.wl td{padding:8px 12px;border-bottom:1px solid var(--line2);vertical-align:middle;white-space:nowrap}
+table.wl tr.vrow{cursor:pointer}
+table.wl tr.vrow:hover td{background:var(--raise)}
+table.wl tr.vrow.on td{background:var(--sel)}
+table.wl tr.vrow td:first-child{border-left:4px solid var(--c)}
+table.wl .pid{background:none;border:0;padding:0;font-weight:700;color:var(--link);text-decoration:underline;font-size:inherit}
+table.wl .when{color:var(--muted)}
+table.wl .todo{color:var(--warn);font-weight:700}
+table.wl .done{color:var(--routine);font-weight:600}
+@media (max-width:1100px){
+  table.wl td,table.wl th.plain{padding-left:8px;padding-right:8px}
+  table.wl th .sort{padding-left:8px;padding-right:8px}
+  table.wl .c-img{display:none}
+}
+.empty-list{padding:34px 18px;color:var(--faint);font-size:calc(15px*var(--fs));text-align:center}
+.pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px 0;font-size:calc(14px*var(--fs));color:var(--muted)}
+.pager .pages{display:flex;align-items:center;gap:6px;margin:0 auto}
+.pager .pgbtn{width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--accent);font-weight:800}
+.pager .pgbtn:disabled{opacity:.4;cursor:not-allowed}
+.pager select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 6px;min-height:36px;font-size:calc(14px*var(--fs))}
 
 /* ---------- visit view ---------- */
-.wrap{padding:20px 24px 100px;max-width:1180px}
-.vhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.vhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .vhead h2{margin:0;font-size:calc(24px*var(--fs));font-weight:700}
 .vhead .meta{color:var(--faint);font-size:calc(15px*var(--fs))}
-.outcome{border:1px solid var(--cline);border-left:6px solid var(--c);background:var(--cbg);border-radius:10px;padding:14px 18px;margin-bottom:18px}
+.outcome{border:1px solid var(--cline);border-left:6px solid var(--c);background:var(--cbg);border-radius:10px;padding:12px 18px;margin-bottom:16px}
 .outcome h3{margin:0 0 3px;font-size:calc(21px*var(--fs));color:var(--c)}
 .outcome p{margin:0;color:var(--text);font-size:calc(16px*var(--fs))}
 .eyes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:980px){.eyes{grid-template-columns:1fr}}
+@media (max-width:900px){.eyes{grid-template-columns:1fr}}
 .eye{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .eye .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eye .top .thumbs{margin-left:auto}
 .eye .top h4{margin:0;font-size:calc(18px*var(--fs))}
-.eye .src{font-size:calc(13.5px*var(--fs));color:var(--faint);margin-left:auto}
 /* Square image box via padding (aspect-ratio is too new for the baseline). */
 .imgbox{position:relative;line-height:0;background:#000;border-radius:9px;overflow:hidden;border:1px solid var(--line);height:0;padding-top:100%}
 .imgbox img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:block}
 .imgbox .cam{opacity:0;transition:opacity .3s;pointer-events:none}
+.imgbox .cam.on{opacity:1}
 /* The photo is sized by the screen's HEIGHT as well as the card's width, so
    on short monitors (768px is common on older PCs) the decision buttons stay
    on screen. Clicking it opens a full-screen view for detailed reading.
    Percentage padding is relative to the card's width, like width, so the
    pair keeps the box square. */
-.imgbox{display:block;width:min(100%,31vh);padding:min(100%,31vh) 0 0;margin:0 auto;cursor:zoom-in}
+.imgbox{display:block;width:100%;margin:0 auto;cursor:zoom-in}
 .imgbox:hover .zoomhint,.imgbox:focus .zoomhint{opacity:1}
-.zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.8);color:#fff;font:600 calc(12.5px*var(--fs))/1.4 var(--sans);
+.zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.85);color:#fff;font:600 calc(12.5px*var(--fs))/1.4 var(--sans);
   padding:3px 9px;border-radius:6px;opacity:0;transition:opacity .2s}
-.imgwrap{position:relative;width:min(100%,29vh);margin:0 auto}
-.imgwrap .imgbox{width:100%;padding-top:100%}
+.imgwrap{position:relative;width:min(100%,31vh);margin:0 auto}
+@media (max-height:800px){
+  .imgwrap{width:min(100%,26vh)}
+  .eye{gap:7px}
+  .dmeline{margin-top:2px;padding:1px 8px;font-size:calc(13.5px*var(--fs))}
+  :root.big .imgwrap{width:min(100%,20vh)}
+}
+@media (max-height:900px){
+  .outcome{padding:8px 14px;margin-bottom:12px}
+  .outcome h3{font-size:calc(19px*var(--fs));margin:0}
+  .vhead{margin-bottom:10px}
+  .wrap{padding-top:14px}
+  .eye{padding:12px;gap:9px}
+}
 #zoom{position:fixed;top:0;right:0;bottom:0;left:0;background:#000;display:none;z-index:30;cursor:zoom-out}
 #zoom.on{display:block}
 #zoom img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
 #zoom .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
   padding:10px 16px;background:rgba(0,0,0,.6);color:#fff;font:600 calc(16px*var(--fs)) var(--sans);z-index:1}
 #zoom .bar button{background:#fff;color:#111;border:0;border-radius:8px;padding:8px 16px;font-weight:700;min-height:40px}
-/* 768px-tall screens: a little less photo (one click from full screen) so a
-   maculopathy line never pushes the decision buttons off screen. */
-@media (max-height:800px){
-  .imgwrap{width:min(100%,24vh)}
-  .eye{gap:7px}
-  .dmeline{margin-top:2px;padding:1px 8px;font-size:calc(13.5px*var(--fs))}
-}
-@media (max-height:900px){
-  .outcome{padding:9px 14px;margin-bottom:12px}
-  .outcome h3{font-size:calc(19px*var(--fs));margin:0}
-  .vhead{margin-bottom:10px}
-  .wrap{padding-top:14px}
-  .eye{padding:12px;gap:9px}
-}
-.imgbox .cam.on{opacity:1}
 .thumbs{display:inline-flex;gap:6px;flex-wrap:wrap}
-.thumbs button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:calc(14px*var(--fs));font-weight:700;display:inline-flex;gap:5px;align-items:center;min-height:32px}
-.thumbs button.on{border-color:var(--text);background:var(--raise);font-weight:700}
+.thumbs button{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:calc(14px*var(--fs));font-weight:700;display:inline-flex;gap:5px;align-items:center;min-height:32px}
+.thumbs button.on{border-color:var(--text)}
 .thumbs i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
 .result{font-size:calc(16px*var(--fs))}
 .result b{color:var(--c)}
-.result .sub{color:var(--muted);font-size:calc(14.5px*var(--fs));margin-top:2px}
 .dmeline{margin-top:4px;font-size:calc(14px*var(--fs));color:var(--c);background:var(--cbg);border:1px solid var(--cline);border-radius:6px;padding:2px 8px;display:inline-block}
-.warn{background:#EFF4FF;border:1px solid #9DB6F2;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));color:#1E3A8A}
+.warn{background:var(--reviewbg);border:1px solid var(--reviewline);border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));color:var(--text)}
 .decide .eyebrow{display:block;margin-bottom:7px;font-size:calc(14.5px*var(--fs));color:var(--text)}
 .vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .vb{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 6px;font-weight:700;font-size:calc(16px*var(--fs));min-height:50px;position:relative;color:var(--c)}
 .vb:hover{border-color:var(--c);background:var(--cbg)}
-.vb.sel{background:var(--c);border-color:var(--c);color:#fff}
+.vb.sel{background:var(--c);border-color:var(--c);color:var(--onc)}
 .vb .sug{position:absolute;top:-10px;right:6px;font-size:calc(11.5px*var(--fs));font-weight:700;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 7px;color:var(--muted);line-height:1.6}
 .graded{font-size:calc(14px*var(--fs));color:var(--muted);margin-top:7px}
+details{border-top:1px solid var(--line2);padding-top:8px}
+summary{cursor:pointer;color:var(--muted);font-size:calc(14px*var(--fs))}
 details.more{border-top:0;padding-top:4px}
-details.more summary{font-size:calc(14px*var(--fs));color:var(--review)}
+details.more summary{font-size:calc(14px*var(--fs));color:var(--link)}
 /* "What this means": a clinical reminder per photo, closed by default */
 details.about{border-top:0;padding-top:0}
 details.about summary{display:block;list-style:none;color:var(--text);position:relative}
 details.about summary::-webkit-details-marker{display:none}
-.explain{display:inline-block;white-space:nowrap;font-size:calc(14px*var(--fs));font-weight:600;color:var(--review);
-  border:1px solid #9DB6F2;border-radius:999px;padding:0 9px;margin-left:4px;line-height:1.6}
+.explain{display:inline-block;white-space:nowrap;font-size:calc(14px*var(--fs));font-weight:600;color:var(--link);
+  border:1px solid var(--reviewline);border-radius:999px;padding:0 9px;margin-left:4px;line-height:1.6}
 .explain::after{content:" ▸"}
 details.about[open] .explain::after{content:" ▾"}
-details.about summary:hover .explain{background:#EFF4FF}
-.aboutbody{border:1px solid var(--line2);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:calc(14.5px*var(--fs))}
+details.about summary:hover .explain{background:var(--reviewbg)}
+.aboutbody{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:calc(14.5px*var(--fs));background:var(--raise)}
 .aboutbody h5{margin:0 0 6px;font-size:calc(15.5px*var(--fs))}
 .aboutbody p{margin:6px 0}
 .aboutbody ul{margin:2px 0 6px;padding-left:20px}
@@ -200,15 +256,13 @@ details.about summary:hover .explain{background:#EFF4FF}
 ul.signs{margin:0 0 6px;padding-left:18px}
 ul.signs li{margin:3px 0}
 details.fullscale{border-top:0;padding-top:0;margin:2px 0 6px}
-details.fullscale summary{font-size:calc(13.5px*var(--fs));color:var(--review)}
+details.fullscale summary{font-size:calc(13.5px*var(--fs));color:var(--link)}
 .ref{font-weight:700;color:var(--refer)}
-.macbox{border-left:4px solid var(--review);background:#EFF4FF;padding:6px 10px;margin:8px 0;border-radius:4px}
+.macbox{border-left:4px solid var(--review);background:var(--reviewbg);padding:6px 10px;margin:8px 0;border-radius:4px}
 .findings{border:1px solid var(--line2);border-radius:8px;padding:8px 12px;margin:4px 0 0}
 .findings label{display:block;font-size:calc(14.5px*var(--fs));padding:3px 0}
 .findings input{width:18px;height:18px;vertical-align:-3px;margin-right:6px}
 .missing{display:flex;align-items:center;justify-content:center;min-height:260px;border:2px dashed var(--line);border-radius:9px;color:var(--faint);font-size:calc(15px*var(--fs));text-align:center;padding:20px}
-details{border-top:1px solid var(--line2);padding-top:8px}
-summary{cursor:pointer;color:var(--muted);font-size:calc(14px*var(--fs))}
 table.kv{width:100%;border-collapse:collapse;font-size:calc(13.5px*var(--fs));margin-top:8px}
 table.kv td{padding:5px 0;border-bottom:1px solid var(--line2);vertical-align:top}
 table.kv td:first-child{color:var(--faint);width:46%}
@@ -219,50 +273,48 @@ table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break
 /* decision axis (inside technical details) */
 .axiswrap{position:relative;height:30px;margin:22px 0 4px}
 .track{position:absolute;left:0;right:0;bottom:10px;height:8px;border-radius:4px;overflow:hidden;background:var(--raise);display:flex}
-.zone.r{background:#7FD4A8} .zone.a{background:repeating-linear-gradient(-45deg,#9DB6F2 0 5px,#DCE6FB 5px 10px)} .zone.f{background:#F5A097}
+.zone.r{background:var(--routineline)} .zone.a{background:repeating-linear-gradient(-45deg,var(--reviewline) 0 5px,var(--reviewbg) 5px 10px)} .zone.f{background:var(--referline)}
 .opline{position:absolute;bottom:6px;width:2px;height:15px;background:var(--text)}
-.marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--brandbg);border-radius:2px}
-.marker::after{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font:700 calc(12px*var(--fs)) var(--mono);color:var(--brand)}
+.marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--accent);border-radius:2px}
+.marker::after{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font:700 calc(12px*var(--fs)) var(--mono);color:var(--accent)}
 .axlabels{display:flex;justify-content:space-between;font:calc(12px*var(--fs)) var(--mono);color:var(--faint)}
 
-/* sticky action bar */
+/* visit layout: the visit scrolls above a fixed footer holding Save */
 .vlayout{display:flex;flex-direction:column;height:100%}
 .scroller{flex:1;min-height:0;overflow-y:auto}
-.scroller .wrap{padding-bottom:20px}
 .actions{flex:none;border-top:1px solid var(--line);background:var(--panel);padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-@media (max-width:800px){.vlayout{height:auto}.actions{position:sticky;bottom:0}}
-.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:42px}
+.actions input{flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:42px}
 .actions .btn{min-height:44px;font-size:calc(16px*var(--fs))}
 .saved{color:var(--routine);font-size:calc(15px*var(--fs));font-weight:600}
 
-.blank{padding:80px 30px;text-align:center;color:var(--faint);max-width:520px;margin:0 auto}
-.blank h2{color:var(--muted);font-size:calc(20px*var(--fs));margin:0 0 8px}
-
 /* ---------- dialogs ---------- */
-.overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(5,8,10,.7);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 .overlay.on{display:flex}
-.dialog{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.dialog{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .dialog h2{margin:0 0 4px;font-size:calc(21px*var(--fs))}
 .dialog p{margin:0 0 16px;color:var(--muted);font-size:calc(15px*var(--fs))}
+.dialog .brand{padding:0 0 12px;color:var(--text)}
+.dialog .brand small{color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
-.field input,.field select{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:8px;font-size:calc(16px*var(--fs));min-height:44px}
+.field input,.field select{background:var(--bg);border:1px solid var(--line);padding:10px 12px;border-radius:8px;font-size:calc(16px*var(--fs));min-height:44px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .drop{border:2px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;color:var(--muted);margin:4px 0 12px}
-.drop.hot{border-color:var(--brandbg);background:#FFF7E6}
+.drop.hot{border-color:var(--accent);background:var(--routinebg)}
 .err{color:var(--refer);font-size:calc(14.5px*var(--fs));min-height:20px;font-weight:600}
 .row{display:flex;gap:8px;justify-content:flex-end}
 
 /* monitoring */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
 .card h3{margin:0 0 10px;font-size:calc(16px*var(--fs));color:var(--text)}
-.alertbox{background:#FEF3F2;border:1px solid #F5A097;color:#8A1C12;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
+.alertbox{background:var(--referbg);border:1px solid var(--referline);color:var(--refer);border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
+.okbox{background:var(--routinebg);border:1px solid var(--routineline);color:var(--routine);border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
+.note{color:var(--faint);font-size:calc(13.5px*var(--fs));margin:6px 0 0}
 .lstep{margin:10px 0}
 .lrow{display:flex;justify-content:space-between;gap:10px;font-size:calc(15px*var(--fs))}
 .lrow .ok{color:var(--routine);font-weight:700}
 .lbar{height:10px;background:var(--raise);border:1px solid var(--line2);border-radius:6px;overflow:hidden;margin:4px 0}
-.lbar i{display:block;height:100%;background:var(--review)}
+.lbar i{display:block;height:100%;background:var(--accent)}
 .lsub{font-size:calc(13.5px*var(--fs));color:var(--muted)}
-.okbox{background:#ECFDF3;border:1px solid #7FD4A8;color:#05603A;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
 .tablewrap{overflow-x:auto}
 table.grid{width:100%;border-collapse:collapse;font:calc(14px*var(--fs)) var(--mono)}
 table.grid th{font:700 calc(12.5px*var(--fs)) var(--sans);color:var(--muted);text-align:right;padding:7px 8px;border-bottom:2px solid var(--line)}
@@ -271,7 +323,7 @@ table.grid th:first-child,table.grid td:first-child{text-align:left}
 
 /* sign-out warning */
 #idleWarn{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:40;display:none;align-items:center;gap:12px;
-  background:#FFF7E6;border:2px solid #B45309;color:#7A3A06;border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+  background:var(--warnbg);border:2px solid var(--warnline);color:var(--warn);border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #idleWarn.on{display:flex}
 
 /* two-eye upload */
@@ -282,23 +334,40 @@ table.grid th:first-child,table.grid td:first-child{text-align:left}
 .drop .zstat.ok{color:var(--routine);font-weight:700}
 
 /* earlier visits of the same patient */
-.history{font-size:calc(14.5px*var(--fs));color:var(--muted);margin:-6px 0 12px}
-.history button{background:none;border:0;padding:0 2px;text-decoration:underline;color:var(--review);font-size:inherit;min-height:0}
+.history{font-size:calc(14.5px*var(--fs));color:var(--muted);margin:-4px 0 12px}
+.history button{background:none;border:0;padding:0 2px;text-decoration:underline;color:var(--link);font-size:inherit;min-height:0}
 
-/* print: the visit as a one-page report */
+/* Narrow windows (not the target, but usable): sidebar becomes a top bar. */
+@media (max-width:800px){
+  body{display:block}
+  #nav{flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px;padding:8px}
+  .navsec,.navfoot .role{display:none}
+  .navbtn{width:auto}
+  .navfoot{margin:0;border:0;padding:0;display:flex;gap:6px;align-items:center}
+  main{display:block}
+  .vlayout{height:auto}
+  .actions{position:sticky;bottom:0}
+  .filters{grid-template-columns:1fr 1fr}
+  .wrap{padding:14px 12px 24px}
+}
+
+/* print: the visit as a one-page report, always light */
 .printonly{display:none}
 @media print{
+  :root{--bg:#fff;--panel:#fff;--raise:#fff;--line:#999;--line2:#ccc;--text:#111;--muted:#333;--faint:#444;
+    --refer:#B42318;--referbg:#FEF3F2;--referline:#F5A097;--routine:#067647;--routinebg:#ECFDF3;--routineline:#7FD4A8;
+    --review:#1D4ED8;--reviewbg:#EFF4FF;--reviewline:#9DB6F2;--incomplete:#4B5563;--incompletebg:#F2F4F7;--incompleteline:#C3C9D2}
   @page{margin:14mm}
-  body{background:#fff;font-size:12pt}
-  #strip,header,#rail,.decide,.actions,details,.zoomhint,.thumbs,#idleWarn,.history,.vhead .btn{display:none!important}
-  main{display:block;height:auto}
+  body{display:block;background:#fff;font-size:12pt}
+  #nav,#strip,.decide,.actions,details:not(.about),.aboutbody,.explain,.zoomhint,.thumbs,#idleWarn,.history,.vhead .btn{display:none!important}
+  main{display:block}
   #stage,.scroller{overflow:visible}
   .vlayout{height:auto}
   .wrap{padding:0;max-width:none}
   .printonly{display:block}
   .eyes{grid-template-columns:1fr 1fr}
-  .eye{break-inside:avoid;border-color:#999}
-  .imgwrap,.imgwrap .imgbox{width:6.5cm}
+  .eye{break-inside:avoid}
+  .imgwrap{width:6.5cm}
   .imgbox{border:0}
   .tag,.outcome{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .ptitle{font-size:16pt;font-weight:700;margin:0 0 2mm}
@@ -348,11 +417,19 @@ window.MODERN_OK = (function () {
   document.addEventListener('DOMContentLoaded', hide);
 })();
 </script>
+<script>
+/* Theme and sidebar before first paint, so a light-mode user never sees a dark flash. */
+try {
+  if (localStorage.getItem('dr.theme') === 'light') document.documentElement.classList.add('light');
+  if (localStorage.getItem('dr.bigText') === '1') document.documentElement.classList.add('big');
+} catch (e) {}
+</script>
 
 <div class="overlay" id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <form class="dialog" id="loginForm" autocomplete="on">
-    <h2 id="loginTitle">Retinal Screening</h2>
-    <p>Sign in with your account. Research software — not a medical device.</p>
+    <div class="brand"><span class="mark"><i></i></span><span><b id="loginTitle">Retinal Screening</b>
+      <small>Diabetic retinopathy · research software</small></span></div>
+    <p>Sign in with your hospital account. Research software — not a medical device.</p>
     <label class="field"><span class="eyebrow">Username</span><input type="text" id="luser" autocomplete="username" required></label>
     <label class="field"><span class="eyebrow">Password</span><input type="password" id="lpass" autocomplete="current-password" required></label>
     <div class="err" id="lerr" role="alert"></div>
@@ -392,38 +469,54 @@ window.MODERN_OK = (function () {
 <div id="idleWarn" role="alert"><span id="idleText">You will be signed out soon because of inactivity.</span>
   <button class="btn small" id="stayBtn">Stay signed in</button></div>
 
-<div id="strip"><b>Research software — not a medical device.</b><span id="stripText">Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.</span></div>
-
-<header>
-  <h1>Retinal Screening</h1>
-  <span class="pill" id="mode" hidden></span>
-  <span class="spacer"></span>
-  <button class="btn primary" id="addBtn" hidden>+ Add images</button>
-  <button class="btn" id="monBtn" hidden>Monitoring</button>
-  <button class="btn" id="sizeBtn" aria-pressed="false" title="Make all text larger">Larger text</button>
-  <span class="who" id="who"></span>
-  <button class="btn" id="outBtn" hidden>Sign out</button>
-</header>
+<nav id="nav" aria-label="Main">
+  <div class="brand"><span class="mark" aria-hidden="true"><i></i></span>
+    <span><b>Retinal Screening</b><small>Diabetic retinopathy</small></span></div>
+  <div id="navItems" hidden>
+    <div class="navsec">Worklist</div>
+    <button class="navbtn" data-tab="todo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
+      To review <span class="count" id="nTodo"></span></button>
+    <button class="navbtn" data-tab="done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      Reviewed <span class="count" id="nDone"></span></button>
+    <button class="navbtn" data-tab="all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>
+      All visits <span class="count" id="nAll"></span></button>
+    <div class="navsec">Images</div>
+    <button class="navbtn add" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Add images</button>
+    <div id="oversight" hidden>
+      <div class="navsec">Oversight</div>
+      <button class="navbtn" id="monBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        Monitoring</button>
+    </div>
+  </div>
+  <div class="navsec">Display</div>
+  <button class="navbtn" id="sizeBtn" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 18 9 6l5 12M5.6 14h6.8M15 18l3-7 3 7"/></svg>
+    <span>Larger text</span></button>
+  <button class="navbtn" id="themeBtn" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <span>Light mode</span></button>
+  <div class="navfoot" id="navFoot" hidden>
+    <div class="who" id="who"></div><div class="role" id="role"></div>
+    <button class="navbtn" id="outBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+      Sign out</button>
+  </div>
+</nav>
 
 <main>
-  <aside id="rail">
-    <div class="tabs" role="tablist">
-      <button data-tab="todo" class="on" role="tab" aria-selected="true">To do <span id="nTodo"></span></button>
-      <button data-tab="done" role="tab" aria-selected="false">Done <span id="nDone"></span></button>
-      <button data-tab="all" role="tab" aria-selected="false">All</button>
-    </div>
-    <div class="search"><input type="search" id="find" placeholder="Find patient ID" aria-label="Find patient ID"></div>
-    <div id="list"></div>
-    <div class="railfoot"><kbd>J</kbd> / <kbd>K</kbd> next / previous patient</div>
-  </aside>
-  <section id="stage">
-    <div class="blank"><h2>No patient selected</h2><p>Choose a patient from the list, or add images. Patients needing a decision are listed first.</p></div>
-  </section>
+  <div id="strip">
+    <button class="iconbtn" id="navToggle" aria-label="Show or hide the menu" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <b>Research software — not a medical device.</b><span id="stripText" title="Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.">Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.</span>
+    <span class="pill" id="mode" hidden></span>
+  </div>
+  <section id="stage"></section>
 </main>
 
 <script>
 const $ = s => document.querySelector(s);
 let SYS = null, ME = null, VISITS = [], TAB = 'todo', CURRENT = null, DETAIL = null;
+let VIEW = 'list';      // 'list' | 'visit' | 'monitor'
+let FILTER = {q: '', result: '', when: ''};
+let SORT = {key: null, dir: 1};   // null = clinical priority (the server's order)
+let PAGE = 1, PAGE_SIZE = 10;
 let PICK = {};          // eye -> chosen verdict for the open visit
 let EXTRA = {};         // eye -> {grade, dme, findings[]}: optional labels for the learning loop
 let SHOWN = {};         // eye -> case_id currently shown
@@ -439,7 +532,9 @@ const HEADLINE = {
   MANUAL_REVIEW:'Needs a grader’s decision',
   INCOMPLETE:'Incomplete — an eye has no result yet',
 };
+const PRIORITY = {MANUAL_REVIEW:0, REFER:1, INCOMPLETE:2, ROUTINE:3};
 const EYES = [['right','Right eye (OD)'], ['left','Left eye (OS)']];
+const TAB_TITLE = {todo:'To review', done:'Reviewed', all:'All visits'};
 
 // Escape every server-supplied string before it goes into innerHTML: patient
 // IDs, filenames and notes come from users.
@@ -450,8 +545,13 @@ const esc = v => v == null ? '' : String(v).replace(/[&<>"']/g,
 const pct = v => v == null ? '—' : v >= 0.995 ? '>99%' : v <= 0.005 ? '<1%' : (v*100).toFixed(0) + '%';
 const clinical = () => ME && ME.role !== 'photographer';
 const day = iso => iso ? new Date(iso).toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'}) : '';
+// Worklist dates: the year only when it is not this year.
+const shortDay = iso => !iso ? '' : new Date(iso).getFullYear() === new Date().getFullYear()
+  ? new Date(iso).toLocaleDateString(undefined, {day:'numeric', month:'short'}) : day(iso);
 const time = iso => iso ? new Date(iso).toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'}) : '';
 const plainReason = r => String(r).replace(/\s*\([^)]*\)/g, '');
+const store = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const stored = k => { try { return localStorage.getItem(k); } catch { return null; } };
 
 async function api(path, opts){
   LAST_REQ = Date.now();
@@ -497,7 +597,8 @@ $('#outBtn').onclick = async () => {
   await fetch('/api/logout', {method:'POST', credentials:'same-origin'});
   ME = null; CURRENT = null; VISITS = []; PICK = {}; STASH = null;
   $('#idleWarn').classList.remove('on');
-  $('#list').innerHTML = ''; blank();
+  $('#navItems').hidden = true; $('#navFoot').hidden = true;
+  $('#stage').innerHTML = '';
   showLogin('Signed out.');
 };
 
@@ -509,8 +610,8 @@ function okToLeave(){
   return !n || confirm(`You have ${n} unsaved decision${n > 1 ? 's' : ''} for ` +
     `${(DETAIL && DETAIL.visit.patient_id) || 'this patient'}.\n\nLeave without saving?`);
 }
-function goVisit(id, reveal){
-  if (id !== CURRENT && okToLeave()) openVisit(id, reveal);
+function goVisit(id){
+  if ((id !== CURRENT || VIEW !== 'visit') && okToLeave()) openVisit(id);
 }
 window.addEventListener('beforeunload', e => { if (unsaved()){ e.preventDefault(); e.returnValue = ''; } });
 
@@ -533,15 +634,31 @@ setInterval(() => {
 }, 10000);
 $('#stayBtn').onclick = () => api('/api/me').then(() => $('#idleWarn').classList.remove('on')).catch(() => {});
 
-/* ---------- text size ---------- */
+/* ---------- display: text size, theme, sidebar ---------- */
 function setBig(on){
   document.documentElement.classList.toggle('big', on);
   $('#sizeBtn').setAttribute('aria-pressed', String(on));
-  $('#sizeBtn').textContent = on ? 'Normal text' : 'Larger text';
-  try { localStorage.setItem('dr.bigText', on ? '1' : '0'); } catch {}
+  $('#sizeBtn span').textContent = on ? 'Normal text' : 'Larger text';
+  store('dr.bigText', on ? '1' : '0');
 }
 $('#sizeBtn').onclick = () => setBig(!document.documentElement.classList.contains('big'));
-try { if (localStorage.getItem('dr.bigText') === '1') setBig(true); } catch {}
+function setLight(on){
+  document.documentElement.classList.toggle('light', on);
+  $('#themeBtn').setAttribute('aria-pressed', String(on));
+  $('#themeBtn span').textContent = on ? 'Dark mode' : 'Light mode';
+  store('dr.theme', on ? 'light' : 'dark');
+}
+$('#themeBtn').onclick = () => setLight(!document.documentElement.classList.contains('light'));
+function setNav(shown){
+  document.body.classList.toggle('navhidden', !shown);
+  $('#navToggle').setAttribute('aria-expanded', String(shown));
+  store('dr.nav', shown ? 'shown' : 'hidden');
+}
+$('#navToggle').onclick = () => setNav(document.body.classList.contains('navhidden'));
+setBig(document.documentElement.classList.contains('big'));
+setLight(document.documentElement.classList.contains('light'));
+setNav(stored('dr.nav') !== 'hidden');
+PAGE_SIZE = Number(stored('dr.pageSize')) || 10;
 
 /* ---------- system status ---------- */
 async function loadSystem(){
@@ -553,17 +670,19 @@ async function loadSystem(){
     const head = SYS.mode === 'DEMO'
       ? 'Demo mode — results come from a placeholder, not a trained model.'
       : 'Unvalidated model — results must not inform patient care.';
-    strip.innerHTML = `<b>${head}</b><span>Research software, not a medical device.</span>
-      <button class="link" id="why" aria-expanded="false">Why?</button>
-      <div id="stripNote">${esc(SYS.note)}</div>`;
+    $('#stripText').innerHTML = `${head} Research software, not a medical device.
+      <button class="link" id="why" aria-expanded="false">Why?</button>`;
+    if (!$('#stripNote')){ const n = document.createElement('div'); n.id = 'stripNote'; strip.appendChild(n); }
+    $('#stripNote').textContent = SYS.note || '';
     $('#why').onclick = () => {
       const on = $('#stripNote').classList.toggle('on');
       $('#why').setAttribute('aria-expanded', on);
     };
   }
-  $('#who').textContent = `${ME.username} · ${ME.role}`;
-  $('#outBtn').title = `Signed in as ${ME.username} (${ME.role})`;
-  $('#addBtn').hidden = false; $('#outBtn').hidden = false; $('#monBtn').hidden = !clinical();
+  $('#who').textContent = ME.username;
+  $('#role').textContent = {photographer:'Photographer', grader:'Grader', admin:'Administrator'}[ME.role] || ME.role;
+  $('#navItems').hidden = false; $('#navFoot').hidden = false;
+  $('#oversight').hidden = !clinical();
 }
 
 /* ---------- worklist ---------- */
@@ -572,57 +691,130 @@ async function refresh(){
   renderList();
 }
 function filtered(){
-  const q = $('#find').value.trim().toLowerCase();
-  return VISITS.filter(v =>
+  const q = FILTER.q.trim().toLowerCase();
+  const since = {today: 1, week: 7, month: 30}[FILTER.when];
+  const cutoff = since ? (since === 1 ? new Date(new Date().toDateString()).getTime() : Date.now() - since * 864e5) : 0;
+  const rows = VISITS.map((v, i) => [v, i]).filter(([v]) =>
     (TAB === 'all' || (TAB === 'todo') === v.needs_review) &&
-    (!q || String(v.patient_id || '').toLowerCase().includes(q)));
+    (!q || String(v.patient_id || '').toLowerCase().includes(q)) &&
+    (!FILTER.result || v.decision === FILTER.result) &&
+    (!cutoff || new Date(v.last_utc).getTime() >= cutoff));
+  const key = {
+    patient: v => String(v.patient_id || '').toLowerCase(),
+    date: v => v.last_utc || '',
+    result: v => PRIORITY[v.decision] ?? 9,
+    review: v => v.needs_review ? 0 : 1,
+    images: v => v.n_images,
+  }[SORT.key];
+  // Stable: ties keep the clinical-priority order the server sends.
+  if (key) rows.sort((a, b) => { const x = key(a[0]), y = key(b[0]);
+    return x < y ? -SORT.dir : x > y ? SORT.dir : a[1] - b[1]; });
+  return rows.map(r => r[0]);
 }
 function renderList(){
-  $('#nTodo').textContent = `(${VISITS.filter(v => v.needs_review).length})`;
-  $('#nDone').textContent = `(${VISITS.filter(v => !v.needs_review).length})`;
-  const rows = filtered();
-  if (!rows.length){
-    $('#list').innerHTML = `<div class="empty-list">${
-      TAB === 'todo' && VISITS.length ? 'Nothing left to review.' :
-      $('#find').value ? 'No patient matches.' : 'No patients yet. Use “Add images”.'}</div>`;
-    return;
-  }
-  $('#list').innerHTML = rows.map(v => {
-    const dot = side => {
-      const e = v.eyes[side];
-      // The colour is repeated in words for screen readers and on hover.
-      const what = `${side} eye: ${e ? SHORT[e.outcome] : 'no image'}`;
-      return `<span class="eyedot ${e ? e.outcome : 'none'}" title="${what}">
-        <span aria-hidden="true">${side === 'right' ? 'R' : 'L'}</span><i></i><span class="sr">${what}.</span></span>`;
-    };
-    return `<button class="visit ${v.decision} ${v.encounter_id === CURRENT ? 'on' : ''}" data-id="${esc(v.encounter_id)}">
-      <div class="row1"><span class="pid">${esc(v.patient_id || 'Unknown patient')}</span>
-        <span class="tag ${v.decision}">${SHORT[v.decision]}</span></div>
-      <div class="row2">${dot('right')}${dot('left')}<span>${day(v.last_utc)}</span>
-        <span class="${v.needs_review ? 'pending' : ''}">${v.needs_review
-          ? `${v.pending_images} image${v.pending_images > 1 ? 's' : ''} to review` : '✓ reviewed'}</span></div>
-    </button>`;
-  }).join('');
-  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => goVisit(b.dataset.id, true));
-}
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  TAB = b.dataset.tab;
+  $('#nTodo').textContent = VISITS.filter(v => v.needs_review).length;
+  $('#nDone').textContent = VISITS.filter(v => !v.needs_review).length;
+  $('#nAll').textContent = VISITS.length;
   syncTabs();
-  renderList();
+  if (VIEW === 'list' && $('#wl')) renderTable();
+}
+function syncTabs(){
+  document.querySelectorAll('#nav [data-tab]').forEach(x => {
+    const on = VIEW === 'list' && x.dataset.tab === TAB;
+    x.classList.toggle('on', on);
+    if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+  });
+  $('#monBtn').classList.toggle('on', VIEW === 'monitor');
+}
+document.querySelectorAll('#nav [data-tab]').forEach(b => b.onclick = () => {
+  if (VIEW !== 'list' && !okToLeave()) return;
+  TAB = b.dataset.tab; PAGE = 1;
+  showList();
 });
-$('#find').oninput = renderList;
+
+// The worklist page: filters, table and pager. The shell is drawn once;
+// typing in a filter redraws only the table, so the field keeps its focus.
+function showList(){
+  VIEW = 'list'; PICK = {};
+  const opt = (v, t, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${t}</option>`;
+  const todo = VISITS.filter(v => v.needs_review).length;
+  $('#stage').innerHTML = `<div class="wrap">
+    <div class="pagehead"><h2>${TAB_TITLE[TAB]}</h2>
+      <span class="total">Total records <b id="total">0</b></span><span class="spacer"></span>
+      ${clinical() && todo ? `<button class="btn primary" id="startBtn">Start reviewing (${todo})</button>` : ''}</div>
+    <div class="filters" role="search">
+      <label class="f">Search patient ID<input type="search" id="fq" placeholder="Enter patient ID" value="${esc(FILTER.q)}"></label>
+      <label class="f">Result<select id="fres">${opt('', 'All', FILTER.result)}${opt('REFER', 'Refer', FILTER.result)}
+        ${opt('MANUAL_REVIEW', 'Needs review', FILTER.result)}${opt('ROUTINE', 'Routine', FILTER.result)}${opt('INCOMPLETE', 'Incomplete', FILTER.result)}</select></label>
+      <label class="f">Visit date<select id="fwhen">${opt('', 'Any time', FILTER.when)}${opt('today', 'Today', FILTER.when)}
+        ${opt('week', 'Last 7 days', FILTER.when)}${opt('month', 'Last 30 days', FILTER.when)}</select></label>
+      <button class="btn ghost" id="freset">Reset</button>
+    </div>
+    <div class="tablecard"><div class="tablescroll"><table class="wl" id="wl"></table></div></div>
+    <div class="pager" id="pager"></div>
+  </div>`;
+  $('#fq').oninput = () => { FILTER.q = $('#fq').value; PAGE = 1; renderTable(); };
+  $('#fres').onchange = () => { FILTER.result = $('#fres').value; PAGE = 1; renderTable(); };
+  $('#fwhen').onchange = () => { FILTER.when = $('#fwhen').value; PAGE = 1; renderTable(); };
+  $('#freset').onclick = () => { FILTER = {q: '', result: '', when: ''}; SORT = {key: null, dir: 1}; PAGE = 1; showList(); };
+  if ($('#startBtn')) $('#startBtn').onclick = () => {
+    const first = VISITS.find(v => v.needs_review);
+    if (first){ TAB = 'todo'; openVisit(first.encounter_id); }
+  };
+  syncTabs();
+  renderTable();
+}
+
+function renderTable(){
+  const rows = filtered();
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  PAGE = Math.min(PAGE, pages);
+  const shown = rows.slice((PAGE - 1) * PAGE_SIZE, PAGE * PAGE_SIZE);
+  $('#total').textContent = rows.length;
+  const col = (key, label) => {
+    const on = SORT.key === key;
+    return `<th aria-sort="${on ? (SORT.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button class="sort" data-sort="${key}">
+      ${label}<i aria-hidden="true">${on ? (SORT.dir > 0 ? '▲' : '▼') : '⇅'}</i></button></th>`;
+  };
+  const eyeCell = (v, side) => {
+    const e = v.eyes[side];
+    if (!e) return '<span class="tag INCOMPLETE">No image</span>';
+    const by = e.source === 'grader' ? 'graded by a person' : 'model result, not yet graded';
+    return `<span class="tag ${e.outcome}" title="${by}">${e.source === 'grader' ? '✓ ' : ''}${SHORT[e.outcome]}</span><span class="sr"> (${by})</span>`;
+  };
+  $('#wl').innerHTML = `<thead><tr>${col('patient', 'Patient ID')}${col('date', 'Visit')}
+      <th class="plain">Right eye</th><th class="plain">Left eye</th>${col('result', 'Result')}${col('review', 'Review')}${col('images', 'Images').replace('<th ', '<th class="c-img" ')}</tr></thead>
+    <tbody>${shown.map(v => `<tr class="vrow ${v.decision} ${v.encounter_id === CURRENT ? 'on' : ''}" data-id="${esc(v.encounter_id)}">
+      <td><button class="pid" data-open="${esc(v.encounter_id)}">${esc(v.patient_id || 'Unknown patient')}</button></td>
+      <td class="when">${esc(shortDay(v.last_utc))} · ${esc(time(v.last_utc))}</td>
+      <td>${eyeCell(v, 'right')}</td><td>${eyeCell(v, 'left')}</td>
+      <td><span class="tag ${v.decision}">${SHORT[v.decision]}</span></td>
+      <td>${v.needs_review ? `<span class="todo">${v.pending_images} to review</span>` : '<span class="done">✓ Reviewed</span>'}</td>
+      <td class="c-img">${v.n_images}</td></tr>`).join('')}</tbody>`;
+  if (!shown.length) $('#wl').insertAdjacentHTML('beforeend', `<tbody><tr><td colspan="7" class="empty-list">${
+    TAB === 'todo' && VISITS.length && !FILTER.q && !FILTER.result && !FILTER.when ? 'Nothing left to review.' :
+    VISITS.length ? 'No visit matches these filters.' : 'No patients yet. Use “Add images”.'}</td></tr></tbody>`);
+  $('#wl').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => {
+    const k = b.dataset.sort;
+    SORT = SORT.key === k ? (SORT.dir > 0 ? {key: k, dir: -1} : {key: null, dir: 1}) : {key: k, dir: 1};
+    renderTable();
+  });
+  $('#wl').querySelectorAll('tr.vrow').forEach(tr => tr.onclick = () => goVisit(tr.dataset.id));
+  const first = (PAGE - 1) * PAGE_SIZE + 1, last = Math.min(rows.length, PAGE * PAGE_SIZE);
+  $('#pager').innerHTML = `<span>${rows.length ? `Showing ${first}–${last} of ${rows.length}` : 'Showing 0'}</span>
+    <span class="pages"><button class="pgbtn" data-pg="1" aria-label="First page" ${PAGE === 1 ? 'disabled' : ''}>«</button>
+      <button class="pgbtn" data-pg="${PAGE - 1}" aria-label="Previous page" ${PAGE === 1 ? 'disabled' : ''}>‹</button>
+      <span>Page ${PAGE} of ${pages}</span>
+      <button class="pgbtn" data-pg="${PAGE + 1}" aria-label="Next page" ${PAGE === pages ? 'disabled' : ''}>›</button>
+      <button class="pgbtn" data-pg="${pages}" aria-label="Last page" ${PAGE === pages ? 'disabled' : ''}>»</button></span>
+    <label>Page size <select id="psize">${[10, 25, 50].map(n => `<option ${n === PAGE_SIZE ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+  $('#pager').querySelectorAll('[data-pg]').forEach(b => b.onclick = () => { PAGE = Number(b.dataset.pg); renderTable(); });
+  $('#psize').onchange = () => { PAGE_SIZE = Number($('#psize').value); store('dr.pageSize', PAGE_SIZE); PAGE = 1; renderTable(); };
+}
 
 /* ---------- visit view ---------- */
-function blank(){
-  $('#stage').innerHTML = `<div class="blank"><h2>No patient selected</h2>
-    <p>Choose a patient from the list, or add images. Patients needing a decision are listed first.</p></div>`;
-}
-
-const stacked = () => matchMedia('(max-width:900px)').matches;
-
-async function openVisit(id, reveal = false){
+async function openVisit(id){
   CURRENT = id; PICK = {}; SHOWN = {}; EXTRA = {};
-  renderList();
   const v = await api('/api/encounters/' + encodeURIComponent(id));
   // Full detail (quality, reasons, verdict history) for each image.
   const details = await Promise.all(v.cases.map(c => api('/api/cases/' + encodeURIComponent(c.case_id))));
@@ -631,10 +823,11 @@ async function openVisit(id, reveal = false){
     const first = v.cases.find(c => c.eye === side);
     if (first) SHOWN[side] = first.case_id;
   }
+  const fresh = VIEW !== 'visit';
+  VIEW = 'visit'; syncTabs();
+  if (fresh) $('#stage').innerHTML = '';
   if ($('#scroller')) $('#scroller').scrollTop = 0;    // a new patient starts at the top
   renderVisit();
-  // Instant, not smooth: images loading mid-animation cancel a smooth scroll.
-  if (reveal && stacked()) $('#stage').scrollIntoView({block:'start'});
 }
 
 // `more` is the "Explain" cue: this line is the clickable summary of the
@@ -683,9 +876,10 @@ function axis(c){
 // The model's estimated grade is deliberately NOT used here: on the external
 // test it matched the specialist grade only 43% of the time and said
 // "proliferative" for 108 photos of which 26 were (artifacts/served_eval.json),
-// so letting it pick a level or an urgency would mislead. Wording follows the International Clinical DR severity scale
-// (Wilkinson et al., Ophthalmology 2003), the scale the training images were
-// graded on, and IDRiD's maculopathy grading for the maculopathy check.
+// so letting it pick a level or an urgency would mislead. Wording follows the
+// International Clinical DR severity scale (Wilkinson et al., Ophthalmology
+// 2003), the scale the training images were graded on, and IDRiD's
+// maculopathy grading for the maculopathy check.
 const ICDR = [
   ['No apparent retinopathy', 'No abnormalities.'],
   ['Mild NPDR', 'Microaneurysms only (tiny red dots).'],
@@ -857,13 +1051,15 @@ function renderVisit(){
   // Earlier visits of this patient, newest first, for comparison.
   const earlier = v.patient_id ? VISITS.filter(x => x.patient_id === v.patient_id && x.encounter_id !== CURRENT)
     .sort((a, b) => String(b.last_utc).localeCompare(String(a.last_utc))).slice(0, 4) : [];
+  const list = filtered(), pos = list.findIndex(x => x.encounter_id === CURRENT);
   // The visit scrolls above a fixed footer holding Save, so the footer can
   // never cover a decision button. Keep the scroll position across re-renders
   // (every decision click re-renders).
   const y = $('#scroller') ? $('#scroller').scrollTop : 0;
   $('#stage').innerHTML = `<div class="vlayout"><div class="scroller" id="scroller"><div class="wrap">
     <div class="printonly"><p class="ptitle">Diabetic retinopathy screening report</p></div>
-    <div class="vhead"><h2>${esc(v.patient_id || 'Unknown patient')}</h2>
+    <div class="vhead"><button class="btn small ghost" id="backBtn" title="Back to the worklist">‹ ${TAB_TITLE[TAB]}${pos >= 0 ? ` · ${pos + 1} of ${list.length}` : ''}</button>
+      <h2>${esc(v.patient_id || 'Unknown patient')}</h2>
       <span class="meta">Visit ${esc(day(first))} · ${nImg} image${nImg > 1 ? 's' : ''}</span>
       <span class="spacer"></span>
       <span class="tag ${v.final ? 'ROUTINE' : 'INCOMPLETE'}">${v.final ? 'Final — graded by a human' : 'Preliminary'}</span>
@@ -881,7 +1077,8 @@ function renderVisit(){
   </div></div>
     ${clinical() ? `<div class="actions">
       <input type="text" id="note" placeholder="Note for this visit (optional)" maxlength="2000">
-      <button class="btn" id="nextBtn">Next patient <kbd>J</kbd></button>
+      <button class="btn" id="prevBtn" ${pos > 0 ? '' : 'disabled'}>‹ Previous <kbd>K</kbd></button>
+      <button class="btn" id="nextBtn" ${pos >= 0 && pos < list.length - 1 ? '' : 'disabled'}>Next <kbd>J</kbd> ›</button>
       <button class="btn primary" id="saveBtn" ${changed ? '' : 'disabled'}>Save${changed ? ` ${changed} decision${changed > 1 ? 's' : ''}` : ''} &amp; next</button>
       <span class="saved" id="savedMsg" role="status"></span></div>` : ''}</div>`;
   $('#scroller').scrollTop = y;
@@ -932,8 +1129,10 @@ function wireVisit(){
     d.open ? OPEN_ABOUT.add(d.dataset.case) : OPEN_ABOUT.delete(d.dataset.case);
   });
   st.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => goVisit(b.dataset.visit));
+  $('#backBtn').onclick = () => { if (okToLeave()) showList(); };
   $('#printBtn').onclick = () => window.print();
   if ($('#fhirBtn')) $('#fhirBtn').onclick = downloadFhir;
+  if ($('#prevBtn')) $('#prevBtn').onclick = () => step(-1);
   if ($('#nextBtn')) $('#nextBtn').onclick = () => step(1);
   if ($('#saveBtn')) $('#saveBtn').onclick = save;
 }
@@ -1005,15 +1204,8 @@ async function save(){
   await refresh();
   // Next patient still to review, else stay on this one (now reviewed).
   const next = VISITS.find(v => v.needs_review && v.encounter_id !== done);
-  if (next){ TAB = 'todo'; syncTabs(); openVisit(next.encounter_id, true); }
+  if (next){ TAB = 'todo'; openVisit(next.encounter_id); }
   else { await openVisit(done); $('#savedMsg').textContent = 'Saved. Nothing left to review.'; }
-}
-
-function syncTabs(){
-  document.querySelectorAll('.tabs button').forEach(x => {
-    x.classList.toggle('on', x.dataset.tab === TAB);
-    x.setAttribute('aria-selected', String(x.dataset.tab === TAB));
-  });
 }
 
 function step(d){
@@ -1024,7 +1216,7 @@ function step(d){
   if (n) goVisit(n.encounter_id);
 }
 document.addEventListener('keydown', e => {
-  if (e.target.closest('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (VIEW !== 'visit' || e.target.closest('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
   if ($('.overlay.on') || $('#zoom.on')) return;
   if (e.key === 'j' || e.key === 'J'){ e.preventDefault(); step(1); }
   if (e.key === 'k' || e.key === 'K'){ e.preventDefault(); step(-1); }
@@ -1055,7 +1247,7 @@ $('#addBtn').onclick = () => {
 };
 const closeAdd = () => dlg.classList.remove('on');
 $('#addClose').onclick = closeAdd;
-$('#addDone').onclick = () => { closeAdd(); if (ADD_ENC) goVisit(ADD_ENC, true); };
+$('#addDone').onclick = () => { closeAdd(); if (ADD_ENC) goVisit(ADD_ENC); };
 dlg.addEventListener('keydown', e => { if (e.key === 'Escape') closeAdd(); });
 dlg.querySelectorAll('.drop').forEach(z => {
   ['dragenter','dragover'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.add('hot'); }));
@@ -1108,17 +1300,17 @@ async function upload(files, eye){
 /* ---------- monitoring ---------- */
 $('#monBtn').onclick = async () => {
   if (!okToLeave()) return;
-  CURRENT = null; PICK = {}; renderList();
+  VIEW = 'monitor'; PICK = {}; syncTabs();
   const m = await api('/api/monitoring');
   const L = await api('/api/learning').catch(() => null);
   const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td><td>${pct(r.refer_rate)}</td>
     <td>${pct(r.manual_rate)}</td><td>${pct(r.ungradable_rate)}</td><td>${r.reviewed ?? 0}</td><td>${pct(r.agreement_rate)}</td></tr>`;
   const head = first => `<tr><th>${first}</th><th>Images</th><th>Refer</th><th>Human review</th><th>Ungradable</th><th>Reviewed</th><th>Agreement</th></tr>`;
   $('#stage').innerHTML = `<div class="wrap">
-    <div class="vhead"><h2>Monitoring</h2><span class="meta">last ${m.window_days} days</span></div>
+    <div class="pagehead"><h2>Monitoring</h2><span class="total">last ${m.window_days} days</span></div>
     <div class="card"><h3>Alerts</h3>
       ${m.alerts.length ? m.alerts.map(a => `<div class="alertbox">${esc(a)}</div>`).join('') : '<div class="okbox">No warning signs in this period.</div>'}
-      <p style="color:var(--faint);font-size:13px;margin:6px 0 0">A new camera, photographer or patient group can make the model worse without any error. Falling agreement with graders and rising ungradable rates are the early signs.</p></div>
+      <p class="note">A new camera, photographer or patient group can make the model worse without any error. Falling agreement with graders and rising ungradable rates are the early signs.</p></div>
     ${L ? learningCard(L) : ''}
     <div class="card"><h3>Recent vs earlier</h3><div class="tablewrap"><table class="grid">${head('Period')}
       ${row(`Last ${m.recent_days} days`, m.recent)}${row('Earlier', m.baseline)}</table></div></div>
@@ -1184,8 +1376,9 @@ async function boot(){
     $('#savedMsg').textContent = 'Your unsaved decisions were kept. Check them, then save.';
     return;
   }
-  const first = filtered()[0];
-  if (first) openVisit(first.encounter_id);
+  // Photographers start on all visits (they upload; they do not grade).
+  if (!clinical()) TAB = 'all';
+  showList();
 }
 if (!window.OLD_BROWSER) boot();
 </script>

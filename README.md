@@ -250,7 +250,7 @@ than no demo.
 | `fhir.py` | HL7 FHIR R4 `DiagnosticReport` per visit, with SNOMED laterality. |
 | `dicom_io.py` | DICOM ingest: pixels plus PatientID, laterality, study and camera from tags. Never reads the patient name. |
 | `service.py` | FastAPI: sign-in, predict, worklist, verdicts, visits, FHIR, monitoring, audit verification. |
-| `webapp/index.html` | Grader review interface. Worklist ordered by clinical priority, not upload time. |
+| `webapp/index.html` | Grader review interface: sidebar, filterable and sortable worklist (clinical priority by default, not upload time), per-patient two-eye view. Dark by default, with Light mode and Larger text; fits 1024×768. |
 | `Dockerfile`, `docker-compose.yml` | On-premise packaging behind the hospital TLS proxy. No data or keys in image layers. |
 | `model_card.py` | Generates `MODEL_CARD.md` from measured evaluation artifacts. |
 
