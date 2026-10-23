@@ -182,6 +182,27 @@ kbd{font-family:var(--mono);font-size:calc(12px*var(--fs));border:1px solid var(
 .graded{font-size:calc(14px*var(--fs));color:var(--muted);margin-top:7px}
 details.more{border-top:0;padding-top:4px}
 details.more summary{font-size:calc(14px*var(--fs));color:var(--review)}
+/* "What this means": a clinical reminder per photo, closed by default */
+details.about{border-top:0;padding-top:0}
+details.about summary{display:block;list-style:none;color:var(--text);position:relative}
+details.about summary::-webkit-details-marker{display:none}
+.explain{display:inline-block;white-space:nowrap;font-size:calc(14px*var(--fs));font-weight:600;color:var(--review);
+  border:1px solid #9DB6F2;border-radius:999px;padding:0 9px;margin-left:4px;line-height:1.6}
+.explain::after{content:" ▸"}
+details.about[open] .explain::after{content:" ▾"}
+details.about summary:hover .explain{background:#EFF4FF}
+.aboutbody{border:1px solid var(--line2);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:calc(14.5px*var(--fs))}
+.aboutbody h5{margin:0 0 6px;font-size:calc(15.5px*var(--fs))}
+.aboutbody p{margin:6px 0}
+.aboutbody ul{margin:2px 0 6px;padding-left:20px}
+.aboutbody .fine{font-size:calc(13px*var(--fs));color:var(--muted)}
+.aboutbody .lead{font-weight:700;margin-bottom:2px}
+ul.signs{margin:0 0 6px;padding-left:18px}
+ul.signs li{margin:3px 0}
+details.fullscale{border-top:0;padding-top:0;margin:2px 0 6px}
+details.fullscale summary{font-size:calc(13.5px*var(--fs));color:var(--review)}
+.ref{font-weight:700;color:var(--refer)}
+.macbox{border-left:4px solid var(--review);background:#EFF4FF;padding:6px 10px;margin:8px 0;border-radius:4px}
 .findings{border:1px solid var(--line2);border-radius:8px;padding:8px 12px;margin:4px 0 0}
 .findings label{display:block;font-size:calc(14.5px*var(--fs));padding:3px 0}
 .findings input{width:18px;height:18px;vertical-align:-3px;margin-right:6px}
@@ -205,7 +226,11 @@ table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break
 .axlabels{display:flex;justify-content:space-between;font:calc(12px*var(--fs)) var(--mono);color:var(--faint)}
 
 /* sticky action bar */
-.actions{position:sticky;bottom:0;margin-top:18px;background:linear-gradient(rgba(243,245,248,0),var(--ink) 30%);padding:18px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.vlayout{display:flex;flex-direction:column;height:100%}
+.scroller{flex:1;min-height:0;overflow-y:auto}
+.scroller .wrap{padding-bottom:20px}
+.actions{flex:none;border-top:1px solid var(--line);background:var(--panel);padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:800px){.vlayout{height:auto}.actions{position:sticky;bottom:0}}
 .actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:42px}
 .actions .btn{min-height:44px;font-size:calc(16px*var(--fs))}
 .saved{color:var(--routine);font-size:calc(15px*var(--fs));font-weight:600}
@@ -267,7 +292,8 @@ table.grid th:first-child,table.grid td:first-child{text-align:left}
   body{background:#fff;font-size:12pt}
   #strip,header,#rail,.decide,.actions,details,.zoomhint,.thumbs,#idleWarn,.history,.vhead .btn{display:none!important}
   main{display:block;height:auto}
-  #stage{overflow:visible}
+  #stage,.scroller{overflow:visible}
+  .vlayout{height:auto}
   .wrap{padding:0;max-width:none}
   .printonly{display:block}
   .eyes{grid-template-columns:1fr 1fr}
@@ -403,6 +429,7 @@ let EXTRA = {};         // eye -> {grade, dme, findings[]}: optional labels for 
 let SHOWN = {};         // eye -> case_id currently shown
 const CAM = {};         // case_id -> {url, border, warn} | {error}
 const OPEN_TECH = new Set();   // case_ids whose Technical details are open
+const OPEN_ABOUT = new Set();  // case_ids whose "What this means" is open
 let STASH = null;       // unsaved decisions kept across a forced sign-in
 
 const SHORT = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Needs review', UNGRADABLE:'Ungradable', INCOMPLETE:'Incomplete'};
@@ -604,17 +631,20 @@ async function openVisit(id, reveal = false){
     const first = v.cases.find(c => c.eye === side);
     if (first) SHOWN[side] = first.case_id;
   }
+  if ($('#scroller')) $('#scroller').scrollTop = 0;    // a new patient starts at the top
   renderVisit();
   // Instant, not smooth: images loading mid-animation cancel a smooth scroll.
   if (reveal && stacked()) $('#stage').scrollIntoView({block:'start'});
 }
 
-function modelLine(c){
+// `more` is the "Explain" cue: this line is the clickable summary of the
+// "What this means" panel, so the panel costs no extra height when closed.
+function modelLine(c, more = ''){
   const p = c.payload, q = p.quality || {};
   if (!c.gradable){
-    // Short in the main view; the full reason is under Technical details.
+    // Short in the main view; the reasons are under "Explain".
     return `<div class="warn"><b style="color:inherit">Image not gradable</b>: recapture or
-      examine. This is not a negative result.</div>`;
+      examine. This is not a negative result. ${more}</div>`;
   }
   // Plain words only. The percentage and the indicative grade live under
   // Technical details: the grade comes from a different output than the
@@ -630,8 +660,8 @@ function modelLine(c){
   // the cut-off reads as a coin toss. The number is under Technical details.
   const d = p.dme;
   const dme = d && d.suspected ? `<div class="dmeline ${d.status === 'validated' ? 'REFER' : 'MANUAL_REVIEW'}">
-      <b>Maculopathy suspected</b>${d.status === 'validated' ? '' : ' · experimental, advice only'}</div>` : '';
-  return `<div class="result">Model: ${head}${dme}</div>`;
+      <b>Maculopathy suspected</b>${d.status === 'validated' ? '' : ' · advice only'}</div>` : '';
+  return `<div class="result">Model: ${head} ${more}${dme}</div>`;
 }
 
 function axis(c){
@@ -645,18 +675,88 @@ function axis(c){
     <div class="axlabels"><span>routine</span><span>${band ? 'grey zone: human decides' : ''}</span><span>refer</span></div>`;
 }
 
-function technical(c, camBtn){
+/* ---------- "What this means" ---------- */
+// A reminder of what the result means clinically, per photo. The model gives
+// ONE overall result per photo; it does not find or mark individual lesions.
+// So this panel lists the signs that DEFINE the levels the result covers, for
+// the grader to confirm on the photo -- it never claims the model saw them.
+// The model's estimated grade is deliberately NOT used here: on the external
+// test it matched the specialist grade only 43% of the time and said
+// "proliferative" for 108 photos of which 26 were (artifacts/served_eval.json),
+// so letting it pick a level or an urgency would mislead. Wording follows the International Clinical DR severity scale
+// (Wilkinson et al., Ophthalmology 2003), the scale the training images were
+// graded on, and IDRiD's maculopathy grading for the maculopathy check.
+const ICDR = [
+  ['No apparent retinopathy', 'No abnormalities.'],
+  ['Mild NPDR', 'Microaneurysms only (tiny red dots).'],
+  ['Moderate NPDR', 'More than microaneurysms but less than severe: dot/blot haemorrhages, hard exudates (yellow deposits), cotton-wool spots.'],
+  ['Severe NPDR', 'Any of: more than 20 haemorrhages in each of 4 quadrants; venous beading in 2 or more quadrants; IRMA in 1 or more quadrants — and no new vessels.'],
+  ['Proliferative DR', 'New vessels on the disc or elsewhere, or vitreous / pre-retinal haemorrhage.'],
+];
+const UNGRADABLE_CAUSES = ['Small pupil — consider dilating', 'Cataract or another cloudy medium',
+  'Blur from movement or focus', 'Too dark or too bright', 'Eyelashes or eyelid in the picture',
+  'Photo not centred on the retina'];
+
+function about(c, camBtn){
+  const dme = c.payload.dme;
+  let title, rows, gradeLine = '', notice, next;
+  if (!c.gradable){
+    const why = ((c.payload.quality || {}).reasons || []).map(plainReason);
+    title = 'The photo could not be graded';
+    rows = null;
+    notice = null;
+    next = 'Recapture the photo. If it still cannot be graded, the eye needs examining another way under your local pathway: an ungradable photo is <b>not</b> a normal result.';
+    gradeLine = `${why.length ? `<p><b>Why:</b> ${esc(why.join('; '))}.</p>` : ''}
+      <p><b>Common causes:</b></p><ul>${UNGRADABLE_CAUSES.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  } else if (c.decision === 'REFER'){
+    title = 'Referable diabetic retinopathy suspected (moderate or worse)';
+    rows = [2, 3, 4];
+    notice = 'Usually nothing until late — vision is often normal, which is why screening matters. Proliferative DR can cause floaters or sudden loss of vision if it bleeds.';
+    next = 'Referral to ophthalmology under your local pathway. If you see new vessels or vitreous haemorrhage, refer urgently.';
+  } else if (c.decision === 'MANUAL_REVIEW'){
+    title = 'Close to the referral line';
+    rows = [1, 2];
+    gradeLine = '<p>The photo sits near the line between <b>mild</b> (not referable) and <b>moderate</b> (referable). Look for anything beyond microaneurysms.</p>';
+    notice = 'Usually nothing.';
+    next = 'Your grading decides: refer if you see more than microaneurysms.';
+  } else {
+    title = 'No referable diabetic retinopathy suspected (none or mild)';
+    rows = [0, 1];
+    notice = 'Usually nothing.';
+    next = 'Routine re-screening at the usual interval. The model checks for diabetic retinopathy only: anything else you see on the photo needs your judgement.';
+  }
+  // Only the levels this result covers; the whole scale is one click away.
+  const item = i => `<li><b>${ICDR[i][0]}</b>${i >= 2 ? ' <span class="ref">(referable)</span>' : ''}: ${ICDR[i][1]}</li>`;
+  const scale = rows ? `<p class="lead">Signs to check for on the photo:</p><ul class="signs">${rows.map(item).join('')}</ul>
+    <details class="fullscale"><summary>Full grading scale</summary><ul class="signs">${ICDR.map((_, i) => item(i)).join('')}</ul></details>` : '';
+  const mac = dme && dme.suspected ? `<div class="macbox"><p><b>Maculopathy suspected</b> — hard exudates (yellow deposits)
+      within about one disc diameter of the centre of the macula.</p>
+    <p>Retinal thickening cannot be seen on a photo; OCT confirms it. The patient may notice blurred or distorted central vision or difficulty reading, but often nothing early.</p>
+    <p>${dme.status === 'validated' ? 'This check is validated at this site and can turn the result into a referral.'
+      : 'This check is experimental: advice only, it does not change the referral.'}</p></div>` : '';
+  const open = CAM[c.case_id]?.on || OPEN_ABOUT.has(c.case_id);
+  return `<details class="about" data-case="${esc(c.case_id)}" ${open ? 'open' : ''}>
+    <summary>${modelLine(c, '<span class="explain" aria-hidden="true">Explain</span>')}<span class="sr">What this means</span></summary>
+    <div class="aboutbody"><h5>${title}</h5>${gradeLine}${scale}
+      ${notice ? `<p><b>Patient may notice:</b> ${notice}</p>` : ''}
+      <p><b>Usual next step:</b> ${next}</p>${mac}
+      ${camBtn ? `<p>${camBtn}</p>` : ''}
+      <p class="fine">The model gives one overall result per photo; it does not mark individual lesions.
+        Descriptions follow the International Clinical DR scale (Wilkinson et al., 2003). A reminder, not a substitute for clinical judgement.</p></div>
+  </details>`;
+}
+
+function technical(c){
   const q = c.payload.quality || {};
   const trail = c.verdicts.length ? c.verdicts.map(v =>
     `<tr><td>${esc(day(v.created_utc))} ${esc(time(v.created_utc))}</td><td>${esc(SHORT[v.verdict] || v.verdict)} · ${esc(v.grader || '—')}${v.note ? ' · ' + esc(v.note) : ''}</td></tr>`).join('')
     : '<tr><td>Grader decisions</td><td>none yet</td></tr>';
-  const open = CAM[c.case_id]?.on || OPEN_TECH.has(c.case_id);
+  const open = OPEN_TECH.has(c.case_id);
   return `<details class="tech" data-case="${esc(c.case_id)}" ${open ? 'open' : ''}><summary>Technical details</summary>
-    ${camBtn ? `<div style="margin-top:8px">${camBtn}</div>` : ''}
     ${c.probability != null ? axis(c) : ''}
     <table class="kv">
       ${c.probability != null ? `<tr><td>Chance of referable DR</td><td>${pct(c.probability)}</td></tr>` : ''}
-      ${c.payload.grade_label ? `<tr><td>Indicative grade (separate output)</td><td>${esc(c.payload.grade_label)}</td></tr>` : ''}
+      ${c.payload.grade_label ? `<tr><td>Indicative grade (estimate; often wrong on other cameras)</td><td>${esc(c.payload.grade_label)}</td></tr>` : ''}
       <tr><td>Image file</td><td>${esc(c.filename)}</td></tr>
       <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
       <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
@@ -741,11 +841,11 @@ function eyeCard(side, label){
       <img src="/api/cases/${encodeURIComponent(c.case_id)}/image" alt="">
       <img class="cam ${cam?.on ? 'on' : ''}" ${cam?.url ? `src="${cam.url}"` : ''} alt="">
       <span class="zoomhint" aria-hidden="true">Click to enlarge</span></button></div>
-    ${modelLine(c)}
+    ${about(c, camBtn)}
     ${camNote}
     ${decide}
     <div class="printonly">${printDecision(cases)}</div>
-    ${technical(c, camBtn)}
+    ${technical(c)}
   </div>`;
 }
 
@@ -757,7 +857,11 @@ function renderVisit(){
   // Earlier visits of this patient, newest first, for comparison.
   const earlier = v.patient_id ? VISITS.filter(x => x.patient_id === v.patient_id && x.encounter_id !== CURRENT)
     .sort((a, b) => String(b.last_utc).localeCompare(String(a.last_utc))).slice(0, 4) : [];
-  $('#stage').innerHTML = `<div class="wrap">
+  // The visit scrolls above a fixed footer holding Save, so the footer can
+  // never cover a decision button. Keep the scroll position across re-renders
+  // (every decision click re-renders).
+  const y = $('#scroller') ? $('#scroller').scrollTop : 0;
+  $('#stage').innerHTML = `<div class="vlayout"><div class="scroller" id="scroller"><div class="wrap">
     <div class="printonly"><p class="ptitle">Diabetic retinopathy screening report</p></div>
     <div class="vhead"><h2>${esc(v.patient_id || 'Unknown patient')}</h2>
       <span class="meta">Visit ${esc(day(first))} · ${nImg} image${nImg > 1 ? 's' : ''}</span>
@@ -770,16 +874,17 @@ function renderVisit(){
     <div class="outcome ${v.decision}"><h3>${HEADLINE[v.decision]}</h3>
       <p>${v.reasons.map(esc).join(' ')}</p></div>
     <div class="eyes">${EYES.map(([s, l]) => eyeCard(s, l)).join('')}</div>
-    ${clinical() ? `<div class="actions">
-      <input type="text" id="note" placeholder="Note for this visit (optional)" maxlength="2000">
-      <button class="btn" id="nextBtn">Next patient <kbd>J</kbd></button>
-      <button class="btn primary" id="saveBtn" ${changed ? '' : 'disabled'}>Save${changed ? ` ${changed} decision${changed > 1 ? 's' : ''}` : ''} &amp; next</button>
-      <span class="saved" id="savedMsg" role="status"></span></div>` : ''}
     <div class="printonly">${printNotes()}</div>
     <div class="printonly pfoot">Printed ${esc(day(new Date().toISOString()))} ${esc(time(new Date().toISOString()))} by ${esc(ME.username)}.
       Model ${esc(SYS.model_version || '—')}. Research software — not a medical device. A result is final only
       when a qualified grader has decided both eyes.</div>
-  </div>`;
+  </div></div>
+    ${clinical() ? `<div class="actions">
+      <input type="text" id="note" placeholder="Note for this visit (optional)" maxlength="2000">
+      <button class="btn" id="nextBtn">Next patient <kbd>J</kbd></button>
+      <button class="btn primary" id="saveBtn" ${changed ? '' : 'disabled'}>Save${changed ? ` ${changed} decision${changed > 1 ? 's' : ''}` : ''} &amp; next</button>
+      <span class="saved" id="savedMsg" role="status"></span></div>` : ''}</div>`;
+  $('#scroller').scrollTop = y;
   wireVisit();
 }
 
@@ -822,6 +927,9 @@ function wireVisit(){
   });
   st.querySelectorAll('details.tech').forEach(d => d.ontoggle = () => {
     d.open ? OPEN_TECH.add(d.dataset.case) : OPEN_TECH.delete(d.dataset.case);
+  });
+  st.querySelectorAll('details.about').forEach(d => d.ontoggle = () => {
+    d.open ? OPEN_ABOUT.add(d.dataset.case) : OPEN_ABOUT.delete(d.dataset.case);
   });
   st.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => goVisit(b.dataset.visit));
   $('#printBtn').onclick = () => window.print();

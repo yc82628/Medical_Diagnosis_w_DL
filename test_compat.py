@@ -114,3 +114,18 @@ def test_guard_does_not_need_eval():
 def test_probe_uses_the_syntax_the_app_needs():
     for token in ("async function", "await", "?.", "??", "const"):
         assert token in PROBE_JS
+
+
+def test_explanation_panel_does_not_use_the_estimated_grade():
+    # The grade head matched the specialist only 43% of the time on the
+    # external test; the "What this means" panel must not pick a level or an
+    # urgency from it (webapp/index.html, about()).
+    body = re.search(r"function about\(c, camBtn\)\{(.*?)\n\}\n", APP_JS, flags=re.S)
+    assert body, "about() not found"
+    assert "payload.grade" not in body.group(1)
+    assert "const g =" not in body.group(1)
+
+
+def test_explanation_panel_covers_the_whole_icdr_scale():
+    levels = re.search(r"const ICDR = \[(.*?)\n\];", APP_JS, flags=re.S)
+    assert levels and levels.group(1).count("\n  [") == 5
