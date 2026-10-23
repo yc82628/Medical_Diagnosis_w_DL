@@ -1,0 +1,13 @@
+file,true_grade,referable,expected_result,why_included,idrid_source
+scan_01.jpg,0 no DR,no,ROUTINE,"healthy, correctly routine",1. Original Images/a. Training Set/IDRiD_295.jpg
+scan_02.jpg,0 no DR,no,ROUTINE,"healthy, correctly routine",1. Original Images/a. Training Set/IDRiD_195.jpg
+scan_03.jpg,0 no DR,no,ROUTINE,"healthy, correctly routine",1. Original Images/a. Training Set/IDRiD_367.jpg
+scan_04.jpg,0 no DR,no,ROUTINE,"healthy, correctly routine",1. Original Images/a. Training Set/IDRiD_160.jpg
+scan_05.jpg,1 mild,no,ROUTINE,"mild, correctly routine",1. Original Images/a. Training Set/IDRiD_194.jpg
+scan_06.jpg,3 severe,yes,REFER,"referable, correctly refer",1. Original Images/b. Testing Set/IDRiD_034.jpg
+scan_07.jpg,3 severe,yes,REFER,"referable, correctly refer",1. Original Images/b. Testing Set/IDRiD_022.jpg
+scan_08.jpg,4 proliferative,yes,REFER,"referable, correctly refer",1. Original Images/a. Training Set/IDRiD_015.jpg
+scan_09.jpg,2 moderate,yes,REFER,"referable, correctly refer",1. Original Images/a. Training Set/IDRiD_196.jpg
+scan_10.jpg,2 moderate,yes,MANUAL_REVIEW,sent to manual review,1. Original Images/b. Testing Set/IDRiD_065.jpg
+scan_11.jpg,2 moderate,yes,MANUAL_REVIEW,sent to manual review,1. Original Images/a. Training Set/IDRiD_037.jpg
+scan_12.jpg,2 moderate,yes,ROUTINE,referable but missed (model said routine),1. Original Images/b. Testing Set/IDRiD_081.jpg

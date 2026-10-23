@@ -15,12 +15,10 @@ checkpoints/
 # calibrate.py, model_card.py and service.py
 artifacts/
 
-# Synthetic demo data. The 160 images in demo_data/images/ ARE tracked, via
-# Git LFS (see .gitattributes) -- they are synthetic, so safe to publish, and
-# LFS keeps clones of the code fast. They regenerate exactly with:
+# Synthetic demo data: no longer published (real held-out IDRiD photos in
+# test_scans/ replace it for demos). Regenerate locally, if needed, with:
 #     python make_demo_data.py --out demo_data --patients 80
-# The preprocessed cache is derived data; rebuild it with preprocessing.py.
-demo_data/cache_512/
+demo_data/
 
 # Image-encryption key (storage.py). NEVER commit: anyone with it can read
 # every stored patient image. Back it up somewhere safe instead.

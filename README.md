@@ -111,6 +111,11 @@ Cite both datasets in anything you publish: Liu et al., *Patterns* 3(6), 2022
 (DeepDRiD); Porwal et al., IEEE DataPort, 2018 (IDRiD). The dataset folders
 are gitignored.
 
+**Try it with real photos:** `test_scans/` holds 12 IDRiD photos from the
+held-out half (CC BY 4.0, Porwal et al.; renamed, otherwise unmodified) —
+healthy, referable, too-close-to-call and one the model misses — with an
+answer key giving each specialist grade and the expected result.
+
 ### Current results
 
 From `MODEL_CARD.md` (EfficientNet-B3, 512 px, strong augmentation, 8-view
