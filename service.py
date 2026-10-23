@@ -347,6 +347,9 @@ def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",
             "has_evaluation": evaluation is not None,
             "evaluation": evaluation,
             "max_upload_mb": MAX_UPLOAD_MB,
+            # The page warns before the idle sign-out, so a grader never loses
+            # unsaved decisions to it without notice.
+            "idle_minutes": (auth.idle_limit().total_seconds() / 60) if auth.idle_limit() else None,
             "findings": audit.FINDINGS,
             "intended_use": {
                 "decision": "Referral triage for diabetic retinopathy screening",

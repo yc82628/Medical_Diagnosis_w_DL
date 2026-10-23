@@ -23,14 +23,18 @@
   --refer:#B42318; --routine:#067647; --review:#1D4ED8; --incomplete:#4B5563;
   --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
   --mono:ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;
+  --fs:1;              /* text size: 1 normal, 1.15 with "Larger text" */
 }
+:root.big{--fs:1.15}
+/* Read by screen readers, not shown. */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--ink);color:var(--text);font:16px/1.5 var(--sans)}
+body{margin:0;background:var(--ink);color:var(--text);font:calc(16px*var(--fs))/1.5 var(--sans)}
 button{font:inherit;cursor:pointer;color:inherit}
 input,select{font:inherit;color:var(--text)}
 .num{font-family:var(--mono)}
-.eyebrow{font-size:13px;font-weight:600;color:var(--muted)}
+.eyebrow{font-size:calc(13px*var(--fs));font-weight:600;color:var(--muted)}
 :focus-visible{outline:3px solid var(--review);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -39,86 +43,91 @@ input,select{font:inherit;color:var(--text)}
 .ROUTINE{--c:var(--routine);--cbg:#ECFDF3;--cline:#7FD4A8}
 .MANUAL_REVIEW,.UNGRADABLE{--c:var(--review);--cbg:#EFF4FF;--cline:#9DB6F2}
 .INCOMPLETE{--c:var(--incomplete);--cbg:#F2F4F7;--cline:#C3C9D2}
-.tag{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;
+.tag{display:inline-block;font-size:calc(13px*var(--fs));font-weight:700;padding:2px 10px;border-radius:999px;
   color:var(--c);background:var(--cbg);border:1px solid var(--cline);white-space:nowrap;line-height:1.5}
 
 /* ---------- safety strip ---------- */
-#strip{padding:8px 20px;font-size:14px;color:var(--muted);background:#E9EDF2;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+#strip{padding:8px 20px;font-size:calc(14px*var(--fs));color:var(--muted);background:#E9EDF2;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 #strip b{color:var(--text);font-weight:700}
 #strip.DEMO{background:#FFF7E6;border-color:#F3C77A;color:#7A3A06} #strip.DEMO b{color:#7A3A06}
 #strip.UNVALIDATED{background:#FEF3F2;border-color:#F5A097;color:#8A1C12} #strip.UNVALIDATED b{color:#8A1C12}
-#strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:14px}
-#stripNote{flex-basis:100%;font-size:13.5px;display:none}
+#strip .link{background:none;border:0;padding:0;text-decoration:underline;color:inherit;font-size:calc(14px*var(--fs))}
+#stripNote{flex-basis:100%;font-size:calc(13.5px*var(--fs));display:none}
 #stripNote.on{display:block}
 
 /* ---------- top bar ---------- */
 header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--panel);border-bottom:2px solid var(--line);flex-wrap:wrap}
-header h1{font-size:20px;margin:0;font-weight:700}
-.pill{font-size:13px;font-weight:700;padding:3px 11px;border-radius:999px;border:1px solid}
+header h1{font-size:calc(20px*var(--fs));margin:0;font-weight:700}
+.pill{font-size:calc(13px*var(--fs));font-weight:700;padding:3px 11px;border-radius:999px;border:1px solid}
 .pill.MODEL{color:var(--routine);background:#ECFDF3;border-color:#7FD4A8}
 .pill.UNVALIDATED{color:var(--refer);background:#FEF3F2;border-color:#F5A097}
 .pill.DEMO{color:#7A3A06;background:#FFF7E6;border-color:#F3C77A}
 .spacer{flex:1}
-.btn{background:var(--panel);border:1px solid var(--line);padding:8px 15px;border-radius:8px;font-size:15px;min-height:40px;font-weight:600}
+.btn{background:var(--panel);border:1px solid var(--line);padding:8px 15px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:40px;font-weight:600}
 .btn:hover:not(:disabled){border-color:var(--text);background:var(--raise)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn.primary{background:var(--brandbg);border-color:var(--brandbg);color:#fff}
 .btn.primary:hover:not(:disabled){background:#92400E;border-color:#92400E}
-.btn.small{padding:5px 12px;font-size:14px;min-height:34px}
-.who{font-size:14px;color:var(--muted)}
+.btn.small{padding:5px 12px;font-size:calc(14px*var(--fs));min-height:34px}
+.who{font-size:calc(14px*var(--fs));color:var(--muted)}
 
 /* ---------- layout ---------- */
-main{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 100px);min-height:420px}
+/* The page is one screen tall and the worklist and visit scroll inside it,
+   whatever the height of the strip and header ("Larger text" makes them taller). */
+body{display:flex;flex-direction:column}
+main{display:grid;grid-template-columns:320px 1fr;grid-template-rows:minmax(0,1fr);flex:1;min-height:420px}
+#strip,header{flex:none}
 #rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
 #stage{overflow-y:auto;min-height:0}
 /* 1024x768 monitors: a slimmer list keeps both eyes readable. */
-@media (max-width:1100px){main{grid-template-columns:270px 1fr}}
-@media (max-width:800px){main{grid-template-columns:1fr;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
+@media (max-width:1100px){main{grid-template-columns:270px 1fr}:root.big .who{display:none}}
+@media (max-height:800px){:root.big .imgwrap{width:min(100%,18vh)}}
+@media (max-width:800px){body{display:block}main{grid-template-columns:1fr;grid-template-rows:auto;height:auto}#rail{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
 @media (max-width:800px), (pointer:coarse){.railfoot,kbd{display:none}}
 @media (max-width:600px){
-  #strip{padding:6px 12px;font-size:13px}
+  #strip{padding:6px 12px;font-size:calc(13px*var(--fs))}
   header{padding:8px 12px;gap:8px}
-  header h1{font-size:17px}
+  header h1{font-size:calc(17px*var(--fs))}
   .who{display:none}
   .wrap{padding:14px 12px 96px}
 }
 
 /* ---------- worklist ---------- */
 .tabs{display:flex;gap:6px;padding:12px 12px 8px}
-.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 4px;font-size:14px;font-weight:600;color:var(--muted);min-height:38px}
+.tabs button{flex:1 1 auto;white-space:nowrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 4px;font-size:calc(14px*var(--fs));font-weight:600;color:var(--muted);min-height:38px}
 .tabs button.on{background:var(--text);color:#fff;border-color:var(--text)}
 .search{padding:0 12px 10px}
-.search input{width:100%;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:15px}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs))}
 #list{overflow-y:auto;flex:1;min-height:0;border-top:1px solid var(--line2)}
 .visit{display:block;width:100%;text-align:left;background:var(--panel);border:0;border-bottom:1px solid var(--line2);padding:12px 14px 12px 12px;border-left:5px solid var(--c)}
 .visit:hover{background:var(--raise)}
 .visit.on{background:#FFF4E5}
 .visit .row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.visit .pid{font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:13.5px;color:var(--faint);flex-wrap:wrap}
-.eyedot{display:inline-flex;align-items:center;gap:3px;font-weight:600}
+.visit .pid{font-weight:700;font-size:calc(16px*var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.visit .row2{display:flex;gap:10px;align-items:center;margin-top:3px;font-size:calc(13.5px*var(--fs));color:var(--faint);flex-wrap:wrap}
+.eyedot{display:inline-flex;align-items:center;gap:3px;font-weight:600;position:relative}  /* anchors .sr inside the scrolling list */
 .eyedot i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
 .eyedot.none{--c:#D0D5DD}
 .pending{color:var(--brand);font-weight:600}
-.empty-list{padding:28px 18px;color:var(--faint);font-size:15px;text-align:center}
-.railfoot{border-top:1px solid var(--line2);padding:9px 14px;font-size:13px;color:var(--faint)}
-kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel)}
+.empty-list{padding:28px 18px;color:var(--faint);font-size:calc(15px*var(--fs));text-align:center}
+.railfoot{border-top:1px solid var(--line2);padding:9px 14px;font-size:calc(13px*var(--fs));color:var(--faint)}
+kbd{font-family:var(--mono);font-size:calc(12px*var(--fs));border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel)}
 
 /* ---------- visit view ---------- */
 .wrap{padding:20px 24px 100px;max-width:1180px}
 .vhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.vhead h2{margin:0;font-size:24px;font-weight:700}
-.vhead .meta{color:var(--faint);font-size:15px}
+.vhead h2{margin:0;font-size:calc(24px*var(--fs));font-weight:700}
+.vhead .meta{color:var(--faint);font-size:calc(15px*var(--fs))}
 .outcome{border:1px solid var(--cline);border-left:6px solid var(--c);background:var(--cbg);border-radius:10px;padding:14px 18px;margin-bottom:18px}
-.outcome h3{margin:0 0 3px;font-size:21px;color:var(--c)}
-.outcome p{margin:0;color:var(--text);font-size:16px}
+.outcome h3{margin:0 0 3px;font-size:calc(21px*var(--fs));color:var(--c)}
+.outcome p{margin:0;color:var(--text);font-size:calc(16px*var(--fs))}
 .eyes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:980px){.eyes{grid-template-columns:1fr}}
 .eye{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .eye .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eye .top .thumbs{margin-left:auto}
-.eye .top h4{margin:0;font-size:18px}
-.eye .src{font-size:13.5px;color:var(--faint);margin-left:auto}
+.eye .top h4{margin:0;font-size:calc(18px*var(--fs))}
+.eye .src{font-size:calc(13.5px*var(--fs));color:var(--faint);margin-left:auto}
 /* Square image box via padding (aspect-ratio is too new for the baseline). */
 .imgbox{position:relative;line-height:0;background:#000;border-radius:9px;overflow:hidden;border:1px solid var(--line);height:0;padding-top:100%}
 .imgbox img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:block}
@@ -130,63 +139,60 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-b
    pair keeps the box square. */
 .imgbox{display:block;width:min(100%,31vh);padding:min(100%,31vh) 0 0;margin:0 auto;cursor:zoom-in}
 .imgbox:hover .zoomhint,.imgbox:focus .zoomhint{opacity:1}
-.zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.8);color:#fff;font:600 12.5px/1.4 var(--sans);
+.zoomhint{position:absolute;left:8px;bottom:8px;background:rgba(17,24,39,.8);color:#fff;font:600 calc(12.5px*var(--fs))/1.4 var(--sans);
   padding:3px 9px;border-radius:6px;opacity:0;transition:opacity .2s}
 .imgwrap{position:relative;width:min(100%,29vh);margin:0 auto}
 .imgwrap .imgbox{width:100%;padding-top:100%}
-.camchip{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);color:#111;border:1px solid #9AA4B2;
-  border-radius:999px;padding:3px 11px;font:700 12.5px/1.5 var(--sans);min-height:28px}
-.camchip.on{background:#111827;color:#fff;border-color:#111827}
 #zoom{position:fixed;top:0;right:0;bottom:0;left:0;background:#000;display:none;z-index:30;cursor:zoom-out}
 #zoom.on{display:block}
 #zoom img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
 #zoom .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
-  padding:10px 16px;background:rgba(0,0,0,.6);color:#fff;font:600 16px var(--sans);z-index:1}
+  padding:10px 16px;background:rgba(0,0,0,.6);color:#fff;font:600 calc(16px*var(--fs)) var(--sans);z-index:1}
 #zoom .bar button{background:#fff;color:#111;border:0;border-radius:8px;padding:8px 16px;font-weight:700;min-height:40px}
 /* 768px-tall screens: a little less photo (one click from full screen) so a
    maculopathy line never pushes the decision buttons off screen. */
 @media (max-height:800px){
   .imgwrap{width:min(100%,24vh)}
   .eye{gap:7px}
-  .dmeline{margin-top:2px;padding:1px 8px;font-size:13.5px}
+  .dmeline{margin-top:2px;padding:1px 8px;font-size:calc(13.5px*var(--fs))}
 }
 @media (max-height:900px){
   .outcome{padding:9px 14px;margin-bottom:12px}
-  .outcome h3{font-size:19px;margin:0}
+  .outcome h3{font-size:calc(19px*var(--fs));margin:0}
   .vhead{margin-bottom:10px}
   .wrap{padding-top:14px}
   .eye{padding:12px;gap:9px}
 }
 .imgbox .cam.on{opacity:1}
 .thumbs{display:inline-flex;gap:6px;flex-wrap:wrap}
-.thumbs button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:14px;font-weight:700;display:inline-flex;gap:5px;align-items:center;min-height:32px}
+.thumbs button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:calc(14px*var(--fs));font-weight:700;display:inline-flex;gap:5px;align-items:center;min-height:32px}
 .thumbs button.on{border-color:var(--text);background:var(--raise);font-weight:700}
 .thumbs i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
-.result{font-size:16px}
+.result{font-size:calc(16px*var(--fs))}
 .result b{color:var(--c)}
-.result .sub{color:var(--muted);font-size:14.5px;margin-top:2px}
-.dmeline{margin-top:4px;font-size:14px;color:var(--c);background:var(--cbg);border:1px solid var(--cline);border-radius:6px;padding:2px 8px;display:inline-block}
-.warn{background:#EFF4FF;border:1px solid #9DB6F2;border-radius:8px;padding:10px 12px;font-size:15px;color:#1E3A8A}
-.decide .eyebrow{display:block;margin-bottom:7px;font-size:14.5px;color:var(--text)}
+.result .sub{color:var(--muted);font-size:calc(14.5px*var(--fs));margin-top:2px}
+.dmeline{margin-top:4px;font-size:calc(14px*var(--fs));color:var(--c);background:var(--cbg);border:1px solid var(--cline);border-radius:6px;padding:2px 8px;display:inline-block}
+.warn{background:#EFF4FF;border:1px solid #9DB6F2;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));color:#1E3A8A}
+.decide .eyebrow{display:block;margin-bottom:7px;font-size:calc(14.5px*var(--fs));color:var(--text)}
 .vbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.vb{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 6px;font-weight:700;font-size:16px;min-height:50px;position:relative;color:var(--c)}
+.vb{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 6px;font-weight:700;font-size:calc(16px*var(--fs));min-height:50px;position:relative;color:var(--c)}
 .vb:hover{border-color:var(--c);background:var(--cbg)}
 .vb.sel{background:var(--c);border-color:var(--c);color:#fff}
-.vb .sug{position:absolute;top:-10px;right:6px;font-size:11.5px;font-weight:700;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 7px;color:var(--muted);line-height:1.6}
-.graded{font-size:14px;color:var(--muted);margin-top:7px}
+.vb .sug{position:absolute;top:-10px;right:6px;font-size:calc(11.5px*var(--fs));font-weight:700;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 7px;color:var(--muted);line-height:1.6}
+.graded{font-size:calc(14px*var(--fs));color:var(--muted);margin-top:7px}
 details.more{border-top:0;padding-top:4px}
-details.more summary{font-size:14px;color:var(--review)}
+details.more summary{font-size:calc(14px*var(--fs));color:var(--review)}
 .findings{border:1px solid var(--line2);border-radius:8px;padding:8px 12px;margin:4px 0 0}
-.findings label{display:block;font-size:14.5px;padding:3px 0}
+.findings label{display:block;font-size:calc(14.5px*var(--fs));padding:3px 0}
 .findings input{width:18px;height:18px;vertical-align:-3px;margin-right:6px}
-.missing{display:flex;align-items:center;justify-content:center;min-height:260px;border:2px dashed var(--line);border-radius:9px;color:var(--faint);font-size:15px;text-align:center;padding:20px}
+.missing{display:flex;align-items:center;justify-content:center;min-height:260px;border:2px dashed var(--line);border-radius:9px;color:var(--faint);font-size:calc(15px*var(--fs));text-align:center;padding:20px}
 details{border-top:1px solid var(--line2);padding-top:8px}
-summary{cursor:pointer;color:var(--muted);font-size:14px}
-table.kv{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+summary{cursor:pointer;color:var(--muted);font-size:calc(14px*var(--fs))}
+table.kv{width:100%;border-collapse:collapse;font-size:calc(13.5px*var(--fs));margin-top:8px}
 table.kv td{padding:5px 0;border-bottom:1px solid var(--line2);vertical-align:top}
 table.kv td:first-child{color:var(--faint);width:46%}
 table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break-all}
-.camnote{font-size:14px;color:var(--muted);margin:0}
+.camnote{font-size:calc(14px*var(--fs));color:var(--muted);margin:0}
 .camnote.alert{color:var(--refer);font-weight:600}
 
 /* decision axis (inside technical details) */
@@ -195,48 +201,83 @@ table.kv td:last-child{font-family:var(--mono);text-align:right;word-break:break
 .zone.r{background:#7FD4A8} .zone.a{background:repeating-linear-gradient(-45deg,#9DB6F2 0 5px,#DCE6FB 5px 10px)} .zone.f{background:#F5A097}
 .opline{position:absolute;bottom:6px;width:2px;height:15px;background:var(--text)}
 .marker{position:absolute;bottom:3px;width:3px;height:22px;background:var(--brandbg);border-radius:2px}
-.marker::after{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font:700 12px var(--mono);color:var(--brand)}
-.axlabels{display:flex;justify-content:space-between;font:12px var(--mono);color:var(--faint)}
+.marker::after{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font:700 calc(12px*var(--fs)) var(--mono);color:var(--brand)}
+.axlabels{display:flex;justify-content:space-between;font:calc(12px*var(--fs)) var(--mono);color:var(--faint)}
 
 /* sticky action bar */
 .actions{position:sticky;bottom:0;margin-top:18px;background:linear-gradient(rgba(243,245,248,0),var(--ink) 30%);padding:18px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:15px;min-height:42px}
-.actions .btn{min-height:44px;font-size:16px}
-.saved{color:var(--routine);font-size:15px;font-weight:600}
+.actions input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);padding:9px 12px;border-radius:8px;font-size:calc(15px*var(--fs));min-height:42px}
+.actions .btn{min-height:44px;font-size:calc(16px*var(--fs))}
+.saved{color:var(--routine);font-size:calc(15px*var(--fs));font-weight:600}
 
 .blank{padding:80px 30px;text-align:center;color:var(--faint);max-width:520px;margin:0 auto}
-.blank h2{color:var(--muted);font-size:20px;margin:0 0 8px}
+.blank h2{color:var(--muted);font-size:calc(20px*var(--fs));margin:0 0 8px}
 
 /* ---------- dialogs ---------- */
 .overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 .overlay.on{display:flex}
 .dialog{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-.dialog h2{margin:0 0 4px;font-size:21px}
-.dialog p{margin:0 0 16px;color:var(--muted);font-size:15px}
+.dialog h2{margin:0 0 4px;font-size:calc(21px*var(--fs))}
+.dialog p{margin:0 0 16px;color:var(--muted);font-size:calc(15px*var(--fs))}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
-.field input,.field select{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:8px;font-size:16px;min-height:44px}
+.field input,.field select{background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:8px;font-size:calc(16px*var(--fs));min-height:44px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .drop{border:2px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;color:var(--muted);margin:4px 0 12px}
 .drop.hot{border-color:var(--brandbg);background:#FFF7E6}
-.err{color:var(--refer);font-size:14.5px;min-height:20px;font-weight:600}
+.err{color:var(--refer);font-size:calc(14.5px*var(--fs));min-height:20px;font-weight:600}
 .row{display:flex;gap:8px;justify-content:flex-end}
 
 /* monitoring */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
-.card h3{margin:0 0 10px;font-size:16px;color:var(--text)}
-.alertbox{background:#FEF3F2;border:1px solid #F5A097;color:#8A1C12;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
+.card h3{margin:0 0 10px;font-size:calc(16px*var(--fs));color:var(--text)}
+.alertbox{background:#FEF3F2;border:1px solid #F5A097;color:#8A1C12;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
 .lstep{margin:10px 0}
-.lrow{display:flex;justify-content:space-between;gap:10px;font-size:15px}
+.lrow{display:flex;justify-content:space-between;gap:10px;font-size:calc(15px*var(--fs))}
 .lrow .ok{color:var(--routine);font-weight:700}
 .lbar{height:10px;background:var(--raise);border:1px solid var(--line2);border-radius:6px;overflow:hidden;margin:4px 0}
 .lbar i{display:block;height:100%;background:var(--review)}
-.lsub{font-size:13.5px;color:var(--muted)}
-.okbox{background:#ECFDF3;border:1px solid #7FD4A8;color:#05603A;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px}
+.lsub{font-size:calc(13.5px*var(--fs));color:var(--muted)}
+.okbox{background:#ECFDF3;border:1px solid #7FD4A8;color:#05603A;border-radius:8px;padding:10px 12px;font-size:calc(15px*var(--fs));margin-bottom:8px}
 .tablewrap{overflow-x:auto}
-table.grid{width:100%;border-collapse:collapse;font:14px var(--mono)}
-table.grid th{font:700 12.5px var(--sans);color:var(--muted);text-align:right;padding:7px 8px;border-bottom:2px solid var(--line)}
+table.grid{width:100%;border-collapse:collapse;font:calc(14px*var(--fs)) var(--mono)}
+table.grid th{font:700 calc(12.5px*var(--fs)) var(--sans);color:var(--muted);text-align:right;padding:7px 8px;border-bottom:2px solid var(--line)}
 table.grid td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line2)}
 table.grid th:first-child,table.grid td:first-child{text-align:left}
+
+/* sign-out warning */
+#idleWarn{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:40;display:none;align-items:center;gap:12px;
+  background:#FFF7E6;border:2px solid #B45309;color:#7A3A06;border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+#idleWarn.on{display:flex}
+
+/* two-eye upload */
+.zones{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}
+.zones .drop{margin:0;padding:14px 10px}
+.drop h4{margin:0 0 4px;font-size:calc(16px*var(--fs));color:var(--text)}
+.drop .zstat{display:block;font-size:calc(14px*var(--fs));margin-top:6px;min-height:21px}
+.drop .zstat.ok{color:var(--routine);font-weight:700}
+
+/* earlier visits of the same patient */
+.history{font-size:calc(14.5px*var(--fs));color:var(--muted);margin:-6px 0 12px}
+.history button{background:none;border:0;padding:0 2px;text-decoration:underline;color:var(--review);font-size:inherit;min-height:0}
+
+/* print: the visit as a one-page report */
+.printonly{display:none}
+@media print{
+  @page{margin:14mm}
+  body{background:#fff;font-size:12pt}
+  #strip,header,#rail,.decide,.actions,details,.zoomhint,.thumbs,#idleWarn,.history,.vhead .btn{display:none!important}
+  main{display:block;height:auto}
+  #stage{overflow:visible}
+  .wrap{padding:0;max-width:none}
+  .printonly{display:block}
+  .eyes{grid-template-columns:1fr 1fr}
+  .eye{break-inside:avoid;border-color:#999}
+  .imgwrap,.imgwrap .imgbox{width:6.5cm}
+  .imgbox{border:0}
+  .tag,.outcome{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ptitle{font-size:16pt;font-weight:700;margin:0 0 2mm}
+  .pfoot{margin-top:6mm;font-size:9.5pt;color:#333;border-top:1px solid #999;padding-top:2mm}
+}
 
 /* Shown only to browsers too old for this page (see the check below). */
 #oldBrowser{display:none;max-width:640px;margin:60px auto;padding:24px;background:#fff;border:2px solid #B42318;border-radius:12px;font:17px/1.5 Arial,sans-serif;color:#111}
@@ -296,23 +337,24 @@ window.MODERN_OK = (function () {
 <div class="overlay" id="addDlg" role="dialog" aria-modal="true" aria-labelledby="addTitle">
   <div class="dialog">
     <h2 id="addTitle">Add images</h2>
-    <p>DICOM files carry the patient and eye in their tags. For PNG or JPEG, fill them in first.</p>
-    <div class="grid2">
-      <label class="field"><span class="eyebrow">Patient ID</span><input type="text" id="pid" autocomplete="off" maxlength="64"></label>
-      <label class="field"><span class="eyebrow">Eye</span>
-        <select id="eye"><option value="">Select…</option><option value="right">Right (OD)</option><option value="left">Left (OS)</option></select></label>
+    <p>Enter the patient ID, then add each eye’s photo in its box. DICOM files carry the patient ID in their tags.</p>
+    <label class="field"><span class="eyebrow">Patient ID</span><input type="text" id="pid" autocomplete="off" maxlength="64"></label>
+    <div class="zones">
+      <div class="drop" data-eye="right"><h4>Right eye (OD)</h4>Drop here, or
+        <button class="btn small" data-pick="right" style="margin-top:6px">Choose files</button>
+        <span class="zstat" id="zstat-right" role="status"></span></div>
+      <div class="drop" data-eye="left"><h4>Left eye (OS)</h4>Drop here, or
+        <button class="btn small" data-pick="left" style="margin-top:6px">Choose files</button>
+        <span class="zstat" id="zstat-left" role="status"></span></div>
     </div>
-    <div class="grid2">
-      <label class="field"><span class="eyebrow">Visit ID <span style="text-transform:none;letter-spacing:0">(optional)</span></span><input type="text" id="enc" autocomplete="off" maxlength="128" placeholder="patient + today"></label>
-      <label class="field"><span class="eyebrow">Camera <span style="text-transform:none;letter-spacing:0">(optional)</span></span><input type="text" id="dev" autocomplete="off" maxlength="128"></label>
-    </div>
-    <div class="drop" id="drop">
-      <div id="dropMsg">Drop images here, or</div>
-      <button class="btn small" id="pick" style="margin-top:8px">Choose files</button>
-      <input id="file" type="file" accept="image/*,.dcm,application/dicom" multiple hidden>
-    </div>
+    <input id="file" type="file" accept="image/*,.dcm,application/dicom" multiple hidden>
+    <details><summary>Visit ID and camera (optional)</summary>
+      <div class="grid2" style="margin-top:8px">
+        <label class="field"><span class="eyebrow">Visit ID</span><input type="text" id="enc" autocomplete="off" maxlength="128" placeholder="patient + today"></label>
+        <label class="field"><span class="eyebrow">Camera</span><input type="text" id="dev" autocomplete="off" maxlength="128"></label>
+      </div></details>
     <div class="err" id="addErr" role="alert"></div>
-    <div class="row"><button class="btn" id="addClose">Close</button></div>
+    <div class="row"><button class="btn" id="addClose">Cancel</button><button class="btn primary" id="addDone" disabled>Done — open patient</button></div>
   </div>
 </div>
 
@@ -320,6 +362,9 @@ window.MODERN_OK = (function () {
   <div class="bar"><span id="zoomTitle"></span><button id="zoomClose">Close (Esc)</button></div>
   <img id="zoomImg" alt="">
 </div>
+
+<div id="idleWarn" role="alert"><span id="idleText">You will be signed out soon because of inactivity.</span>
+  <button class="btn small" id="stayBtn">Stay signed in</button></div>
 
 <div id="strip"><b>Research software — not a medical device.</b><span id="stripText">Detects referable diabetic retinopathy only. Every result needs review by a qualified grader.</span></div>
 
@@ -329,6 +374,7 @@ window.MODERN_OK = (function () {
   <span class="spacer"></span>
   <button class="btn primary" id="addBtn" hidden>+ Add images</button>
   <button class="btn" id="monBtn" hidden>Monitoring</button>
+  <button class="btn" id="sizeBtn" aria-pressed="false" title="Make all text larger">Larger text</button>
   <span class="who" id="who"></span>
   <button class="btn" id="outBtn" hidden>Sign out</button>
 </header>
@@ -336,9 +382,9 @@ window.MODERN_OK = (function () {
 <main>
   <aside id="rail">
     <div class="tabs" role="tablist">
-      <button data-tab="todo" class="on" role="tab">To review <span id="nTodo"></span></button>
-      <button data-tab="done" role="tab">Reviewed <span id="nDone"></span></button>
-      <button data-tab="all" role="tab">All</button>
+      <button data-tab="todo" class="on" role="tab" aria-selected="true">To do <span id="nTodo"></span></button>
+      <button data-tab="done" role="tab" aria-selected="false">Done <span id="nDone"></span></button>
+      <button data-tab="all" role="tab" aria-selected="false">All</button>
     </div>
     <div class="search"><input type="search" id="find" placeholder="Find patient ID" aria-label="Find patient ID"></div>
     <div id="list"></div>
@@ -356,6 +402,8 @@ let PICK = {};          // eye -> chosen verdict for the open visit
 let EXTRA = {};         // eye -> {grade, dme, findings[]}: optional labels for the learning loop
 let SHOWN = {};         // eye -> case_id currently shown
 const CAM = {};         // case_id -> {url, border, warn} | {error}
+const OPEN_TECH = new Set();   // case_ids whose Technical details are open
+let STASH = null;       // unsaved decisions kept across a forced sign-in
 
 const SHORT = {REFER:'Refer', ROUTINE:'Routine', MANUAL_REVIEW:'Needs review', UNGRADABLE:'Ungradable', INCOMPLETE:'Incomplete'};
 const HEADLINE = {
@@ -379,9 +427,19 @@ const time = iso => iso ? new Date(iso).toLocaleTimeString(undefined, {hour:'2-d
 const plainReason = r => String(r).replace(/\s*\([^)]*\)/g, '');
 
 async function api(path, opts){
+  LAST_REQ = Date.now();
   const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts));
   if (r.status === 401 && path !== '/api/login'){
-    showLogin('Your session has ended. Sign in again.');
+    // Keep this grader's unsaved decisions; boot() restores them if the same
+    // person signs in again (never for someone else).
+    if (ME){
+      STASH = unsaved() ? {user: ME.username, visit: CURRENT, pick: PICK, extra: EXTRA,
+                           note: $('#note') ? $('#note').value : ''} : null;
+      ME = null;
+    }
+    $('#idleWarn').classList.remove('on');
+    showLogin(STASH ? 'Your session has ended. Sign in again — your unsaved decisions are kept.'
+                    : 'Your session has ended. Sign in again.');
     throw {detail:'Sign in required.'};
   }
   const body = (r.headers.get('content-type') || '').includes('json') ? await r.json() : null;
@@ -408,11 +466,55 @@ $('#loginForm').onsubmit = async e => {
   finally { $('#lbtn').disabled = false; }
 };
 $('#outBtn').onclick = async () => {
+  if (!okToLeave()) return;
   await fetch('/api/logout', {method:'POST', credentials:'same-origin'});
-  ME = null; CURRENT = null; VISITS = [];
+  ME = null; CURRENT = null; VISITS = []; PICK = {}; STASH = null;
+  $('#idleWarn').classList.remove('on');
   $('#list').innerHTML = ''; blank();
   showLogin('Signed out.');
 };
+
+/* ---------- unsaved decisions ---------- */
+// Decisions live only in the page until "Save": never drop them silently.
+const unsaved = () => Object.keys(PICK).length;
+function okToLeave(){
+  const n = unsaved();
+  return !n || confirm(`You have ${n} unsaved decision${n > 1 ? 's' : ''} for ` +
+    `${(DETAIL && DETAIL.visit.patient_id) || 'this patient'}.\n\nLeave without saving?`);
+}
+function goVisit(id, reveal){
+  if (id !== CURRENT && okToLeave()) openVisit(id, reveal);
+}
+window.addEventListener('beforeunload', e => { if (unsaved()){ e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- inactivity sign-out ---------- */
+// The server ends a session after SYS.idle_minutes without requests. Clicks
+// and key presses count as activity (one ping a minute at most), so only an
+// unattended screen is signed out -- and two minutes before, a warning offers
+// to stay signed in.
+let LAST_REQ = Date.now();
+document.addEventListener('click', () => { if (ME && Date.now() - LAST_REQ > 60000) api('/api/me').catch(() => {}); }, true);
+document.addEventListener('keydown', () => { if (ME && Date.now() - LAST_REQ > 60000) api('/api/me').catch(() => {}); }, true);
+setInterval(() => {
+  if (!ME || !SYS || !SYS.idle_minutes) return;
+  // The server records activity at most once a minute: allow for that.
+  const left = SYS.idle_minutes * 60000 - 60000 - (Date.now() - LAST_REQ);
+  if (left <= 0){ api('/api/me').catch(() => {}); return; }
+  const warn = left <= 120000;
+  $('#idleWarn').classList.toggle('on', warn);
+  if (warn) $('#idleText').textContent = `You will be signed out in ${Math.max(1, Math.round(left / 60000))} minute${left > 90000 ? 's' : ''} because of inactivity.`;
+}, 10000);
+$('#stayBtn').onclick = () => api('/api/me').then(() => $('#idleWarn').classList.remove('on')).catch(() => {});
+
+/* ---------- text size ---------- */
+function setBig(on){
+  document.documentElement.classList.toggle('big', on);
+  $('#sizeBtn').setAttribute('aria-pressed', String(on));
+  $('#sizeBtn').textContent = on ? 'Normal text' : 'Larger text';
+  try { localStorage.setItem('dr.bigText', on ? '1' : '0'); } catch {}
+}
+$('#sizeBtn').onclick = () => setBig(!document.documentElement.classList.contains('big'));
+try { if (localStorage.getItem('dr.bigText') === '1') setBig(true); } catch {}
 
 /* ---------- system status ---------- */
 async function loadSystem(){
@@ -433,6 +535,7 @@ async function loadSystem(){
     };
   }
   $('#who').textContent = `${ME.username} · ${ME.role}`;
+  $('#outBtn').title = `Signed in as ${ME.username} (${ME.role})`;
   $('#addBtn').hidden = false; $('#outBtn').hidden = false; $('#monBtn').hidden = !clinical();
 }
 
@@ -460,8 +563,10 @@ function renderList(){
   $('#list').innerHTML = rows.map(v => {
     const dot = side => {
       const e = v.eyes[side];
-      return `<span class="eyedot ${e ? e.outcome : 'none'}" title="${side} eye: ${e ? SHORT[e.outcome] : 'no image'}">
-        ${side === 'right' ? 'R' : 'L'}<i></i></span>`;
+      // The colour is repeated in words for screen readers and on hover.
+      const what = `${side} eye: ${e ? SHORT[e.outcome] : 'no image'}`;
+      return `<span class="eyedot ${e ? e.outcome : 'none'}" title="${what}">
+        <span aria-hidden="true">${side === 'right' ? 'R' : 'L'}</span><i></i><span class="sr">${what}.</span></span>`;
     };
     return `<button class="visit ${v.decision} ${v.encounter_id === CURRENT ? 'on' : ''}" data-id="${esc(v.encounter_id)}">
       <div class="row1"><span class="pid">${esc(v.patient_id || 'Unknown patient')}</span>
@@ -471,11 +576,11 @@ function renderList(){
           ? `${v.pending_images} image${v.pending_images > 1 ? 's' : ''} to review` : '✓ reviewed'}</span></div>
     </button>`;
   }).join('');
-  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => openVisit(b.dataset.id, true));
+  $('#list').querySelectorAll('.visit').forEach(b => b.onclick = () => goVisit(b.dataset.id, true));
 }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
-  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  syncTabs();
   renderList();
 });
 $('#find').oninput = renderList;
@@ -511,12 +616,14 @@ function modelLine(c){
     return `<div class="warn"><b style="color:inherit">Image not gradable</b>: recapture or
       examine. This is not a negative result.</div>`;
   }
-  const prob = c.probability;
+  // Plain words only. The percentage and the indicative grade live under
+  // Technical details: the grade comes from a different output than the
+  // referral decision and can seem to contradict it ("borderline" next to
+  // "no apparent retinopathy"), which confused readers.
   let head;
-  if (c.decision === 'MANUAL_REVIEW') head = `<b class="MANUAL_REVIEW">Borderline</b> — the model defers to you`;
+  if (c.decision === 'MANUAL_REVIEW') head = `<b class="MANUAL_REVIEW">Borderline</b> — please decide`;
   else if (c.decision === 'REFER') head = `<b class="REFER">Suggests refer</b>`;
   else head = `<b class="ROUTINE">Suggests routine</b>`;
-  const grade = c.payload.grade_label ? `Indicative grade: ${esc(c.payload.grade_label)}` : '';
   // Maculopathy: one line, and only when suspected (space matters on 768px
   // screens). Experimental = advice (blue); validated = a referral (red).
   // No percentage here: calibrated scores sit on coarse steps, and "50%" on
@@ -524,8 +631,7 @@ function modelLine(c){
   const d = p.dme;
   const dme = d && d.suspected ? `<div class="dmeline ${d.status === 'validated' ? 'REFER' : 'MANUAL_REVIEW'}">
       <b>Maculopathy suspected</b>${d.status === 'validated' ? '' : ' · experimental, advice only'}</div>` : '';
-  return `<div class="result" title="Estimated chance of referable diabetic retinopathy">Model: ${head} · ${pct(prob)}
-    ${grade ? `<div class="sub">${grade}</div>` : ''}${dme}</div>`;
+  return `<div class="result">Model: ${head}${dme}</div>`;
 }
 
 function axis(c){
@@ -539,14 +645,18 @@ function axis(c){
     <div class="axlabels"><span>routine</span><span>${band ? 'grey zone: human decides' : ''}</span><span>refer</span></div>`;
 }
 
-function technical(c){
+function technical(c, camBtn){
   const q = c.payload.quality || {};
   const trail = c.verdicts.length ? c.verdicts.map(v =>
     `<tr><td>${esc(day(v.created_utc))} ${esc(time(v.created_utc))}</td><td>${esc(SHORT[v.verdict] || v.verdict)} · ${esc(v.grader || '—')}${v.note ? ' · ' + esc(v.note) : ''}</td></tr>`).join('')
     : '<tr><td>Grader decisions</td><td>none yet</td></tr>';
-  return `<details><summary>Technical details</summary>
+  const open = CAM[c.case_id]?.on || OPEN_TECH.has(c.case_id);
+  return `<details class="tech" data-case="${esc(c.case_id)}" ${open ? 'open' : ''}><summary>Technical details</summary>
+    ${camBtn ? `<div style="margin-top:8px">${camBtn}</div>` : ''}
     ${c.probability != null ? axis(c) : ''}
     <table class="kv">
+      ${c.probability != null ? `<tr><td>Chance of referable DR</td><td>${pct(c.probability)}</td></tr>` : ''}
+      ${c.payload.grade_label ? `<tr><td>Indicative grade (separate output)</td><td>${esc(c.payload.grade_label)}</td></tr>` : ''}
       <tr><td>Image file</td><td>${esc(c.filename)}</td></tr>
       <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
       <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
@@ -606,8 +716,8 @@ function eyeCard(side, label){
     `<button class="${x.case_id === c.case_id ? 'on' : ''} ${x.decision}" data-side="${side}" data-case="${esc(x.case_id)}"
       title="Image ${i + 1}" aria-label="Image ${i + 1}"><i></i>${i + 1}</button>`).join('')}</div>` : '';
   const camBtn = !SYS.gradcam_available || !clinical() ? '' : !c.gradable ? '' :
-    `<button class="camchip ${CAM[c.case_id]?.on ? 'on' : ''}" data-cam="${esc(c.case_id)}"
-       aria-pressed="${!!CAM[c.case_id]?.on}">${CAM[c.case_id]?.on ? 'Hide' : 'Show'} attention map</button>`;
+    `<button class="btn small" data-cam="${esc(c.case_id)}"
+       aria-pressed="${!!CAM[c.case_id]?.on}">${CAM[c.case_id]?.on ? 'Hide' : 'Show'} attention map on the photo</button>`;
   const cam = CAM[c.case_id];
   const camNote = cam?.error ? `<p class="camnote alert">${esc(cam.error)}</p>` :
     cam?.warn ? `<p class="camnote alert">Attention sits on the image border — possible shortcut. Review carefully.</p>` :
@@ -630,11 +740,12 @@ function eyeCard(side, label){
         aria-label="${label} fundus photograph. Click to enlarge.">
       <img src="/api/cases/${encodeURIComponent(c.case_id)}/image" alt="">
       <img class="cam ${cam?.on ? 'on' : ''}" ${cam?.url ? `src="${cam.url}"` : ''} alt="">
-      <span class="zoomhint" aria-hidden="true">Click to enlarge</span></button>${camBtn}</div>
+      <span class="zoomhint" aria-hidden="true">Click to enlarge</span></button></div>
     ${modelLine(c)}
     ${camNote}
     ${decide}
-    ${technical(c)}
+    <div class="printonly">${printDecision(cases)}</div>
+    ${technical(c, camBtn)}
   </div>`;
 }
 
@@ -643,12 +754,19 @@ function renderVisit(){
   const first = Object.values(DETAIL.cases).map(c => c.created_utc).sort()[0];
   const nImg = v.cases.length;
   const changed = Object.keys(PICK).length;
+  // Earlier visits of this patient, newest first, for comparison.
+  const earlier = v.patient_id ? VISITS.filter(x => x.patient_id === v.patient_id && x.encounter_id !== CURRENT)
+    .sort((a, b) => String(b.last_utc).localeCompare(String(a.last_utc))).slice(0, 4) : [];
   $('#stage').innerHTML = `<div class="wrap">
+    <div class="printonly"><p class="ptitle">Diabetic retinopathy screening report</p></div>
     <div class="vhead"><h2>${esc(v.patient_id || 'Unknown patient')}</h2>
       <span class="meta">Visit ${esc(day(first))} · ${nImg} image${nImg > 1 ? 's' : ''}</span>
       <span class="spacer"></span>
       <span class="tag ${v.final ? 'ROUTINE' : 'INCOMPLETE'}">${v.final ? 'Final — graded by a human' : 'Preliminary'}</span>
-      ${clinical() ? '<button class="btn small" id="fhirBtn">Download report (FHIR)</button>' : ''}</div>
+      <button class="btn small" id="printBtn">Print report</button>
+      ${ME.role === 'admin' ? '<button class="btn small" id="fhirBtn">FHIR export</button>' : ''}</div>
+    ${earlier.length ? `<div class="history">Earlier visits: ${earlier.map(x =>
+      `<button data-visit="${esc(x.encounter_id)}">${esc(day(x.last_utc))} · ${esc(SHORT[x.decision])}</button>`).join(', ')}</div>` : ''}
     <div class="outcome ${v.decision}"><h3>${HEADLINE[v.decision]}</h3>
       <p>${v.reasons.map(esc).join(' ')}</p></div>
     <div class="eyes">${EYES.map(([s, l]) => eyeCard(s, l)).join('')}</div>
@@ -657,8 +775,27 @@ function renderVisit(){
       <button class="btn" id="nextBtn">Next patient <kbd>J</kbd></button>
       <button class="btn primary" id="saveBtn" ${changed ? '' : 'disabled'}>Save${changed ? ` ${changed} decision${changed > 1 ? 's' : ''}` : ''} &amp; next</button>
       <span class="saved" id="savedMsg" role="status"></span></div>` : ''}
+    <div class="printonly">${printNotes()}</div>
+    <div class="printonly pfoot">Printed ${esc(day(new Date().toISOString()))} ${esc(time(new Date().toISOString()))} by ${esc(ME.username)}.
+      Model ${esc(SYS.model_version || '—')}. Research software — not a medical device. A result is final only
+      when a qualified grader has decided both eyes.</div>
   </div>`;
   wireVisit();
+}
+
+// For the printed report: the grader's latest decision for this eye, if any.
+function printDecision(cases){
+  const last = cases.map(x => DETAIL.cases[x.case_id]?.verdicts || []).flat()
+    .sort((a, b) => String(a.created_utc).localeCompare(String(b.created_utc))).pop();
+  return last ? `<p><b>Grader decision: ${esc(SHORT[last.verdict] || last.verdict)}</b> · ${esc(last.grader || '—')} ·
+      ${esc(day(last.created_utc))}</p>`
+    : '<p><b>Not yet graded by a person.</b></p>';
+}
+// For the printed report: the graders' notes, once each (a visit note is
+// saved with every image it applies to).
+function printNotes(){
+  const notes = [...new Set(Object.values(DETAIL.cases).map(c => (c.verdicts[c.verdicts.length - 1] || {}).note).filter(Boolean))];
+  return notes.length ? `<p><b>Grader’s note:</b> ${notes.map(esc).join(' · ')}</p>` : '';
 }
 
 function wireVisit(){
@@ -683,6 +820,11 @@ function wireVisit(){
     cb.checked ? set.add(cb.dataset.finding) : set.delete(cb.dataset.finding);
     e.findings = [...set];
   });
+  st.querySelectorAll('details.tech').forEach(d => d.ontoggle = () => {
+    d.open ? OPEN_TECH.add(d.dataset.case) : OPEN_TECH.delete(d.dataset.case);
+  });
+  st.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => goVisit(b.dataset.visit));
+  $('#printBtn').onclick = () => window.print();
   if ($('#fhirBtn')) $('#fhirBtn').onclick = downloadFhir;
   if ($('#nextBtn')) $('#nextBtn').onclick = () => step(1);
   if ($('#saveBtn')) $('#saveBtn').onclick = save;
@@ -693,12 +835,15 @@ function openZoom(id){
   // Show what the doctor is looking at: the attention map if it is on.
   $('#zoomImg').src = cam?.on && cam.url ? cam.url : `/api/cases/${encodeURIComponent(id)}/image`;
   $('#zoomTitle').textContent = `${DETAIL.visit.patient_id || ''} · ${c.eye || ''} eye${cam?.on ? ' · attention map' : ''}`;
+  ZOOM_FROM = document.activeElement;
   $('#zoom').classList.add('on');
   $('#zoomClose').focus();
 }
+let ZOOM_FROM = null;
 function closeZoom(){
   $('#zoom').classList.remove('on');
   $('#zoomImg').removeAttribute('src');
+  if (ZOOM_FROM && ZOOM_FROM.focus) ZOOM_FROM.focus();   // back to the photo for keyboard users
 }
 $('#zoom').onclick = closeZoom;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#zoom').classList.contains('on')) closeZoom(); });
@@ -748,6 +893,7 @@ async function save(){
     return;
   }
   const done = CURRENT;
+  PICK = {};
   await refresh();
   // Next patient still to review, else stay on this one (now reviewed).
   const next = VISITS.find(v => v.needs_review && v.encounter_id !== done);
@@ -756,7 +902,10 @@ async function save(){
 }
 
 function syncTabs(){
-  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.tab === TAB));
+  document.querySelectorAll('.tabs button').forEach(x => {
+    x.classList.toggle('on', x.dataset.tab === TAB);
+    x.setAttribute('aria-selected', String(x.dataset.tab === TAB));
+  });
 }
 
 function step(d){
@@ -764,7 +913,7 @@ function step(d){
   if (!rows.length) return;
   const i = rows.findIndex(v => v.encounter_id === CURRENT);
   const n = rows[Math.min(rows.length - 1, Math.max(0, i < 0 ? 0 : i + d))];
-  if (n && n.encounter_id !== CURRENT) openVisit(n.encounter_id);
+  if (n) goVisit(n.encounter_id);
 }
 document.addEventListener('keydown', e => {
   if (e.target.closest('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -785,49 +934,73 @@ async function downloadFhir(){
 }
 
 /* ---------- add images ---------- */
-const dlg = $('#addDlg'), drop = $('#drop');
+// One dialog per patient visit, with a box per eye, so the eye is never
+// picked from a list. The patient ID always starts empty: pre-filling it from
+// the open patient risked filing the next patient's photos under the wrong ID.
+const dlg = $('#addDlg');
+let ADD_EYE = null, ADD_ENC = null, ADDED = {right: 0, left: 0};
 $('#addBtn').onclick = () => {
   dlg.classList.add('on'); $('#addErr').textContent = '';
-  if (DETAIL?.visit?.patient_id && !$('#pid').value) $('#pid').value = DETAIL.visit.patient_id;
+  ['#pid', '#enc'].forEach(s => { $(s).value = ''; });
+  ADD_ENC = null; ADDED = {right: 0, left: 0}; zoneStatus();
   setTimeout(() => $('#pid').focus(), 0);
 };
-$('#addClose').onclick = () => dlg.classList.remove('on');
-dlg.addEventListener('keydown', e => { if (e.key === 'Escape') dlg.classList.remove('on'); });
-['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('hot'); }));
-['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('hot'); }));
-drop.addEventListener('drop', e => upload([...e.dataTransfer.files]));
-$('#pick').onclick = () => $('#file').click();
-$('#file').onchange = e => { upload([...e.target.files]); e.target.value = ''; };
+const closeAdd = () => dlg.classList.remove('on');
+$('#addClose').onclick = closeAdd;
+$('#addDone').onclick = () => { closeAdd(); if (ADD_ENC) goVisit(ADD_ENC, true); };
+dlg.addEventListener('keydown', e => { if (e.key === 'Escape') closeAdd(); });
+dlg.querySelectorAll('.drop').forEach(z => {
+  ['dragenter','dragover'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.add('hot'); }));
+  ['dragleave','drop'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.remove('hot'); }));
+  z.addEventListener('drop', e => upload([...e.dataTransfer.files], z.dataset.eye));
+});
+dlg.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { ADD_EYE = b.dataset.pick; $('#file').click(); });
+$('#file').onchange = e => { upload([...e.target.files], ADD_EYE); e.target.value = ''; };
 const isDicom = f => /\.dcm$/i.test(f.name) || f.type === 'application/dicom';
 
-async function upload(files){
+function zoneStatus(busy){
+  for (const side of ['right', 'left']){
+    const z = $('#zstat-' + side), n = ADDED[side];
+    z.className = 'zstat' + (n && busy?.side !== side ? ' ok' : '');
+    z.textContent = busy?.side === side ? `Reading ${busy.i} of ${busy.n}…`
+      : n ? `✓ ${n} image${n > 1 ? 's' : ''} added` : '';
+  }
+  $('#addDone').disabled = !ADD_ENC;
+  $('#addClose').textContent = ADD_ENC ? 'Close' : 'Cancel';
+}
+
+async function upload(files, eye){
   const usable = files.filter(f => f.type.startsWith('image/') || isDicom(f));
-  if (!usable.length) return;
-  const pid = $('#pid').value.trim(), eye = $('#eye').value;
-  if (usable.some(f => !isDicom(f)) && (!pid || !eye)){
-    $('#addErr').textContent = 'Enter the patient ID and choose the eye first.';
-    (pid ? $('#eye') : $('#pid')).focus();
+  if (!usable.length || !eye) return;
+  const pid = $('#pid').value.trim();
+  if (usable.some(f => !isDicom(f)) && !pid){
+    $('#addErr').textContent = 'Enter the patient ID first.';
+    $('#pid').focus();
     return;
   }
   $('#addErr').textContent = '';
-  let enc = null, n = 0;
+  let n = 0;
   for (const f of usable){
-    $('#dropMsg').textContent = `Reading ${++n} of ${usable.length}…`;
+    zoneStatus({side: eye, i: ++n, n: usable.length});
     const fd = new FormData();
     fd.append('file', f);
+    // The eye is always sent: for DICOM the server checks it against the
+    // laterality tag and refuses a mismatch.
     for (const [k, v] of [['patient_id', pid], ['eye', eye], ['encounter_id', $('#enc').value.trim()], ['device', $('#dev').value.trim()]])
       if (v) fd.append(k, v);
-    try { enc = (await api('/api/predict', {method:'POST', body:fd})).encounter_id || enc; }
-    catch(e){ $('#addErr').textContent = `${f.name}: ${e.detail || 'could not read the file'}`; }
+    try {
+      const r = await api('/api/predict', {method:'POST', body:fd});
+      ADD_ENC = r.encounter_id || ADD_ENC; ADDED[eye]++;
+    } catch(e){ $('#addErr').textContent = `${f.name}: ${e.detail || 'could not read the file'}`; }
   }
-  $('#dropMsg').textContent = 'Drop images here, or';
+  zoneStatus();
   await refresh();
-  if (enc && !$('#addErr').textContent){ dlg.classList.remove('on'); $('#eye').value = ''; openVisit(enc); }
 }
 
 /* ---------- monitoring ---------- */
 $('#monBtn').onclick = async () => {
-  CURRENT = null; renderList();
+  if (!okToLeave()) return;
+  CURRENT = null; PICK = {}; renderList();
   const m = await api('/api/monitoring');
   const L = await api('/api/learning').catch(() => null);
   const row = (label, r) => `<tr><td>${esc(label)}</td><td>${r.n ?? 0}</td><td>${pct(r.refer_rate)}</td>
@@ -892,6 +1065,17 @@ async function boot(){
   try { ME = await r.json(); } catch { return; }
   await loadSystem();
   await refresh();
+  // Back after a forced sign-in: the same grader gets their unsaved decisions back.
+  const kept = STASH && STASH.user === ME.username && VISITS.some(v => v.encounter_id === STASH.visit) ? STASH : null;
+  STASH = null;
+  if (kept){
+    await openVisit(kept.visit);
+    PICK = kept.pick; EXTRA = kept.extra;
+    renderVisit();
+    if ($('#note')) $('#note').value = kept.note || '';
+    $('#savedMsg').textContent = 'Your unsaved decisions were kept. Check them, then save.';
+    return;
+  }
   const first = filtered()[0];
   if (first) openVisit(first.encounter_id);
 }

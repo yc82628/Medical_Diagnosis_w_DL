@@ -28,7 +28,7 @@ network only (`DEPLOY.md`).
 | Role | Can |
 |---|---|
 | Photographer | Upload images, see the worklist |
-| Grader | And record decisions, view attention maps, export a visit report |
+| Grader | And record decisions, view attention maps, print a visit report (FHIR export: the admin's button, or the API) |
 | Admin | And verify audit-log integrity |
 | Technical lead (server access) | Export research snapshots and run retraining. **Every export is in the audit log** |
 

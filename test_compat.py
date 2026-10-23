@@ -87,10 +87,20 @@ def test_no_external_resources():
 
 
 def test_text_is_readable_on_old_monitors():
-    base = re.search(r"body\{[^}]*font:(\d+)px", CSS)
-    assert base and int(base.group(1)) >= 16
-    sizes = [float(x) for x in re.findall(r"font-size:(\d+(?:\.\d+)?)px", _strip_comments(CSS))]
+    # Sizes are written calc(Npx*var(--fs)) so "Larger text" can scale them;
+    # N is the normal size.
+    px = r"(?:calc\()?(\d+(?:\.\d+)?)px"
+    base = re.search(r"body\{[^}]*font:" + px, CSS)
+    assert base and float(base.group(1)) >= 16
+    sizes = [float(x) for x in re.findall(r"font-size:" + px, _strip_comments(CSS).split("@media print")[0])]
     assert min(sizes) >= 11.5, f"smallest text {min(sizes)}px"
+
+
+def test_larger_text_scales_every_screen_font():
+    css = _strip_comments(CSS).split("@media print")[0]
+    fixed = re.findall(r"font(?:-size)?:(?:\d{3} )?\d+(?:\.\d+)?px", css)
+    assert not fixed, f"sizes that ignore 'Larger text': {fixed}"
+    assert re.search(r":root\.big\{--fs:1\.\d+\}", css)
 
 
 def test_guard_does_not_need_eval():

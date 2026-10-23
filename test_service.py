@@ -467,6 +467,15 @@ def test_system_reports_demo_mode(env):
     assert s["evaluation"]["internal_test"]["npv"] is None
 
 
+def test_system_reports_idle_limit_for_the_signout_warning(env, monkeypatch):
+    app, *_ = env
+    c = client_for(app, "pia")
+    monkeypatch.setenv("DR_IDLE_MINUTES", "20")
+    assert c.get("/api/system").json()["idle_minutes"] == 20
+    monkeypatch.setenv("DR_IDLE_MINUTES", "0")          # 0 = no idle sign-out
+    assert c.get("/api/system").json()["idle_minutes"] is None
+
+
 def test_security_headers(env):
     app, *_ = env
     r = TestClient(app).get("/")

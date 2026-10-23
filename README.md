@@ -267,8 +267,8 @@ ungradable and referral rates, and raises alerts when they move.
 **Patients, not images.** Every upload carries a patient ID and eye (typed in,
 or read from DICOM tags). Images from one visit are combined: refer if either
 eye is referable; a visit with only one eye screened is INCOMPLETE, never
-ROUTINE. The visit exports as a FHIR `DiagnosticReport`, `preliminary` until a
-grader has reviewed every eye.
+ROUTINE. The visit prints as a one-page report and exports as a FHIR
+`DiagnosticReport`, `preliminary` until a grader has reviewed every eye.
 
 **The model must earn its place.** `AcceptanceConfig` sets floors on AUROC,
 sensitivity, specificity, calibration error and the number of referable test
