@@ -176,6 +176,7 @@ mild-augmentation control with the same seed, and 768 px input.
 | `pick_test_images.py` | Curated known-ground-truth batch for testing |
 | `check_setup.py` | **Run this when anything breaks.** Diagnoses env + config, prints fixes |
 | `validate_quality_gate.py` | Measures the quality/anatomy gate against human gradability labels (EyeQ) |
+| `served_eval.py` | Runs the **served** pipeline (gates, TTA, site calibration, abstention band) on the held-out external half; reports coverage, sensitivity and specificity, and picks one representative case per outcome |
 | `make_demo_data.py` | Synthetic fundus dataset for a known-good end-to-end run |
 | `requirements*.txt` | `.txt` core, `-dev` tests/lint, `-cpu` slim install, `-gpu` Windows/specific CUDA |
 
