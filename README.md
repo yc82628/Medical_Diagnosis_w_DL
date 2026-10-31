@@ -3,7 +3,7 @@
 A screening tool that grades retina photos for diabetic retinopathy, built to fail safely: bad photos
 and borderline cases go to a human instead of getting a confident wrong answer.
 
-> **▶ Try the demo:** [the safety checks and decision rule, interactive](https://yc82628.github.io/medical-imaging.html) on my portfolio.
+> **▶ Try the demo:** [the safety checks and decision rule, interactive](https://yuchuan.vercel.app/medical-imaging.html) on my portfolio.
 >
 > **My role:** solo project. I built everything: the image quality and anatomy checks, the model and
 > its training, calibration, the grading web app and the audit log.
