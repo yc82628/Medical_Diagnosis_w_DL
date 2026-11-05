@@ -175,6 +175,7 @@ mild-augmentation control with the same seed, and 768 px input.
 | `prepare_aptos.py` | Cleans APTOS: fixes extensions, removes duplicate images, adds patient_id |
 | `pick_test_images.py` | Curated known-ground-truth batch for testing |
 | `check_setup.py` | **Run this when anything breaks.** Diagnoses env + config, prints fixes |
+| `quality_model.py` | Learned image-quality gate (efficientnet_b0) on DeepDRiD's human ratings; sub-score heads name the likely cause of a rejection (out of focus, off-centre, artefact) so the photographer knows what to fix |
 | `validate_quality_gate.py` | Measures the quality/anatomy gate against human gradability labels (EyeQ) |
 | `served_eval.py` | Runs the **served** pipeline (gates, TTA, site calibration, abstention band) on the held-out external half; reports coverage, sensitivity and specificity, and picks one representative case per outcome |
 | `make_demo_data.py` | Synthetic fundus dataset for a known-good end-to-end run |
@@ -287,6 +288,11 @@ input) checks guard the input:
   captures. Computed at a fixed working resolution so the verdict does not depend
   on the camera's stored image size. An ungradable image becomes MANUAL_REVIEW,
   never a negative.
+- **Learned quality gate** (`quality_model.py`) — when its checkpoint is present it decides
+  gradability; the classical checks above stay as a backstop. A rejection names the
+  likely cause and the fix ("out of focus or hazy: refocus...", "eye off-centre:
+  re-centre on the macula...", "artefact such as an eyelash..."), from sub-score heads
+  measured on held-out patients (see `MODEL_CARD.md`).
 - **Anatomy gate** (`verify_is_fundus`) — colour, circular field of view, and
   optic-disc cues confirm the upload is a retina, not a wall, a document, or an
   X-ray. Known limitation, documented in the code: a smooth warm-toned circular

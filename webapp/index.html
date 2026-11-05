@@ -835,9 +835,12 @@ async function openVisit(id){
 function modelLine(c, more = ''){
   const p = c.payload, q = p.quality || {};
   if (!c.gradable){
-    // Short in the main view; the reasons are under "Explain".
-    return `<div class="warn"><b style="color:inherit">Image not gradable</b>: recapture or
-      examine. This is not a negative result. ${more}</div>`;
+    // Short in the main view; the reasons are under "Explain". When the
+    // quality model names a likely cause, say what to fix before retaking.
+    const top = flaggedCauses(q)[0];
+    const what = top ? `likely ${esc(top.problem)} — ${esc(top.fix)}.` : 'recapture or examine.';
+    return `<div class="warn"><b style="color:inherit">Image not gradable</b>: ${what}
+      This is not a negative result. ${more}</div>`;
   }
   // Plain words only. The percentage and the indicative grade live under
   // Technical details: the grade comes from a different output than the
@@ -855,6 +858,24 @@ function modelLine(c, more = ''){
   const dme = d && d.suspected ? `<div class="dmeline ${d.status === 'validated' ? 'REFER' : 'MANUAL_REVIEW'}">
       <b>Maculopathy suspected</b>${d.status === 'validated' ? '' : ' · advice only'}</div>` : '';
   return `<div class="result">Model: ${head} ${more}${dme}</div>`;
+}
+
+// Quality problems the learned gate flagged (out of focus, off-centre,
+// artefact), most likely first. Each has its own threshold, chosen on
+// validation; the sub-scores explain a rejection and never decide one.
+function flaggedCauses(q){
+  return Object.values(q.quality_subscores || {}).filter(v => v.flagged)
+    .sort((a, b) => b.p_problem - a.p_problem);
+}
+
+function subscoreRow(q){
+  const subs = Object.values(q.quality_subscores || {});
+  if (!subs.length) return '';
+  const cell = subs.map(v => {
+    const t = `${esc(v.problem)} ${v.p_problem.toFixed(2)} / ${v.threshold.toFixed(2)}`;
+    return v.flagged ? `<b>${t}</b>` : t;
+  }).join('<br>');
+  return `<tr><td>Quality problems: probability / threshold, bold = flagged</td><td style="font-family:var(--sans);text-align:left">${cell}</td></tr>`;
 }
 
 function axis(c){
@@ -953,6 +974,7 @@ function technical(c){
       ${c.payload.grade_label ? `<tr><td>Indicative grade (estimate; often wrong on other cameras)</td><td>${esc(c.payload.grade_label)}</td></tr>` : ''}
       <tr><td>Image file</td><td>${esc(c.filename)}</td></tr>
       <tr><td>Quality decided by</td><td>${q.quality_source === 'learned' ? `learned quality model (P ungradable ${q.p_ungradable.toFixed(2)}, threshold ${q.quality_threshold.toFixed(2)})` : q.quality_source === 'classical' ? 'classical checks only' : '—'}</td></tr>
+      ${subscoreRow(q)}
       <tr><td>Sharpness / field of view</td><td>${q.blur_var != null ? q.blur_var.toFixed(1) : '—'} / ${q.fov_fraction != null ? q.fov_fraction.toFixed(2) : '—'}</td></tr>
       ${c.gradable ? '' : `<tr><td>Why not gradable</td><td style="font-family:var(--sans);text-align:left">${esc((q.reasons || []).map(plainReason).join('; ') || '—')}</td></tr>`}
       ${c.payload.dme ? `<tr><td>Maculopathy</td><td>${c.payload.dme.suspected ? 'suspected' : 'not suspected'} · ${pct(c.payload.dme.probability)} (${esc(c.payload.dme.status)})</td></tr>` : ''}

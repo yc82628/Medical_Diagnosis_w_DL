@@ -161,6 +161,80 @@ def _dme_section(eval_path="artifacts/dme_eval.json",
     return L
 
 
+def _recapture_lines(m: dict, served: dict | None = None) -> list[str]:
+    """Held-out performance of the sub-score heads that name a rejection's cause."""
+    from quality_model import PROBLEM_DEFINITION
+
+    subs, ra = m.get("subscores") or {}, m.get("recapture_reasons_test") or {}
+    if not subs:
+        return []
+    L = ["### Recapture reasons", "",
+         "When the model rejects an image it also names the likely cause, so the "
+         "photographer knows what to fix before retaking. Three ordinal heads on the same "
+         "backbone learn DeepDRiD's graders' sub-scores (clarity, field definition, "
+         "artefact) alongside the overall rating. A cause is named only when its "
+         "probability reaches its own threshold, chosen on validation (Youden's J) and "
+         "frozen; when none does, the reason says no single cause stood out. The "
+         "sub-scores never decide: the gradable decision is the overall threshold above.",
+         "", "Held-out test (same patients as above):", "",
+         "| Reason given | Counts as a problem | Test images with the problem | AUROC "
+         "| Sensitivity / specificity | Weighted κ, full grade |",
+         "|---|---|---|---|---|---|"]
+    for k, r in subs.items():
+        t = r.get("test") or {}
+        L.append(f"| {str(r.get('problem', k)).capitalize()}: {r.get('fix', '')} "
+                 f"| {r.get('problem_definition') or PROBLEM_DEFINITION.get(k, '—')} "
+                 f"| {t.get('n_problem', '—')} of {t.get('n', '—')} "
+                 f"| {_ci(t.get('auroc_ci')) if t.get('auroc_ci') else _fmt(t.get('auroc'))} "
+                 f"| {_pct(t.get('sensitivity'))} / {_pct(t.get('specificity'))} "
+                 f"| {_fmt(t.get('weighted_kappa'))} |")
+    L.append("")
+    if ra.get("n_gate_rejected"):
+        L += [f"Of the {ra['n_gate_rejected']} test images the gate rejected, "
+              f"{_pct(ra.get('named_a_cause'))} were given a cause. For "
+              f"**{_pct(ra.get('top_cause_confirmed'))}** of those the first cause named is "
+              f"one the graders also scored as a problem "
+              f"({_pct(ra.get('any_named_cause_confirmed'))} for any cause named). "
+              f"The graders scored at least one sub-score problem on "
+              f"{_pct(ra.get('human_saw_a_subscore_problem'))} of the images the gate "
+              f"rejected. Causes named, several per image possible: "
+              + ", ".join(f"{(subs.get(k) or {}).get('problem', k)} {n}"
+                          for k, n in (ra.get("per_cause_named") or {}).items())
+              + ". Blur and artefacts usually come together (DeepDRiD graders' Spearman "
+              "correlation between clarity and artefact is -0.59 on all 2,000 images), "
+              "so both are often named."
+              + (" The off-centre head is the weakest and seldom fires on rejected "
+                 "images, so a rejected off-centre photo is usually not told to re-centre."
+                 if (ra.get("per_cause_named") or {}).get("field_definition", 0)
+                 < 0.1 * ra["n_gate_rejected"] else ""), ""]
+    b = m.get("single_task_before") or {}
+    bv, bt, bs = b.get("validation") or {}, b.get("test") or {}, b.get("served") or {}
+    v, t = m.get("validation") or {}, m.get("test") or {}
+    if bt:
+        L += ["Effect of adding the heads on the overall decision, same patients and the "
+              "same threshold rule:", "",
+              "| | Single-task model before | With sub-score heads |", "|---|---|---|",
+              f"| Validation AUROC / caught / false rejects | {_fmt(bv.get('auroc'))} / "
+              f"{_pct(bv.get('catch_rate'))} / {_pct(bv.get('false_reject_rate'))} | "
+              f"{_fmt(v.get('auroc'))} / {_pct(v.get('catch_rate'))} / "
+              f"{_pct(v.get('false_reject_rate'))} |",
+              f"| Test AUROC / caught / false rejects | {_fmt(bt.get('auroc'))} / "
+              f"{_pct(bt.get('catch_rate'))} / {_pct(bt.get('false_reject_rate'))} | "
+              f"{_fmt(t.get('auroc'))} / {_pct(t.get('catch_rate'))} / "
+              f"{_pct(t.get('false_reject_rate'))} |", ""]
+        if bs and served:
+            L[-1:-1] = [f"| As served: caught / false rejects | {_pct(bs.get('catch_rate'))} / "
+                        f"{_pct(bs.get('false_reject_rate'))} ({bs.get('false_rejects')}) | "
+                        f"{_pct(served.get('catch_rate'))} / "
+                        f"{_pct(served.get('false_reject_rate'))} "
+                        f"({served.get('false_rejects')}) |"]
+        L += ["The threshold rests on about ten accepted validation images (5% of "
+              f"{v.get('n_human_accept', 'about 190')}), so the caught and false-reject "
+              "rates at it are coarse: read a difference against the intervals in the "
+              "first table, not as a point change.", ""]
+    return L
+
+
 def _quality_section(model_eval="artifacts/quality_model_eval.json",
                      classical_eval="artifacts/quality_gate_validation.json",
                      checkpoint=None,
@@ -217,6 +291,7 @@ def _quality_section(model_eval="artifacts/quality_model_eval.json",
             if file_sha256(ck) != m.get("checkpoint_sha256"):
                 L += [f"> **Stale:** `{ck}` is not the checkpoint these numbers were "
                       f"measured on. Re-run `quality_model.py`.", ""]
+        L += _recapture_lines(m, sv if sv.get("quality_source") == "learned" else None)
         missed = None if t.get("catch_rate") is None else 1 - t["catch_rate"]
         L += [f"{_pct(missed)} of human-rejected test images still reach the DR model "
               "at this false-reject budget. The gate lowers that number; it does not remove "

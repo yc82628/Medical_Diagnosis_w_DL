@@ -100,3 +100,42 @@ def test_dme_section_reports_cv_and_experimental_status(tmp_path):
     assert "advice only" in text and "never" in text
     assert "**20** of 243" in text and "**Stale:**" in text
     assert model_card._dme_section(str(tmp_path / "none.json")) == []
+
+
+def test_quality_section_reports_recapture_reasons():
+    ci = {"point": 0.9, "lo": 0.85, "hi": 0.95, "n_boot": 10}
+    m = {"subscores": {"clarity": {
+            "problem": "out of focus or hazy", "fix": "refocus and retake",
+            "problem_definition": "clarity 1-6 of 10",
+            "test": {"n": 400, "n_problem": 130, "auroc": 0.9, "auroc_ci": ci,
+                     "sensitivity": 0.8, "specificity": 0.75, "weighted_kappa": 0.65}}},
+         "recapture_reasons_test": {"n_gate_rejected": 70, "named_a_cause": 0.9,
+                                    "top_cause_confirmed": 0.85,
+                                    "any_named_cause_confirmed": 0.9,
+                                    "human_saw_a_subscore_problem": 0.8}}
+    text = "\n".join(model_card._recapture_lines(m))
+    assert "### Recapture reasons" in text
+    assert ("| Out of focus or hazy: refocus and retake | clarity 1-6 of 10 | 130 of 400 "
+            "| 0.900 (95% CI 0.850–0.950) | 80.0% / 75.0% | 0.650 |") in text
+    assert "For **85.0%** of those the first cause named" in text
+    assert "never decide" in text
+    assert model_card._recapture_lines({}) == []
+
+
+def test_recapture_lines_compare_with_the_single_task_model():
+    m = {"subscores": {"clarity": {"problem": "out of focus", "fix": "refocus",
+                                   "test": {"n": 10, "n_problem": 3}}},
+         "validation": {"auroc": 0.83, "catch_rate": 0.31, "false_reject_rate": 0.048,
+                        "n_human_accept": 186},
+         "test": {"auroc": 0.82, "catch_rate": 0.29, "false_reject_rate": 0.032},
+         "single_task_before": {"validation": {"auroc": 0.82, "catch_rate": 0.32,
+                                               "false_reject_rate": 0.048},
+                                "test": {"auroc": 0.81, "catch_rate": 0.34,
+                                         "false_reject_rate": 0.027},
+                                "served": {"catch_rate": 0.35, "false_reject_rate": 0.032,
+                                           "false_rejects": 6}}}
+    text = "\n".join(model_card._recapture_lines(
+        m, {"catch_rate": 0.3, "false_reject_rate": 0.043, "false_rejects": 8}))
+    assert "| Test AUROC / caught / false rejects | 0.810 / 34.0% / 2.7% | 0.820 / 29.0% / 3.2% |" in text
+    assert "| As served: caught / false rejects | 35.0% / 3.2% (6) | 30.0% / 4.3% (8) |" in text
+    assert "5% of 186" in text
