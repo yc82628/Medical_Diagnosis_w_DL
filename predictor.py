@@ -62,9 +62,10 @@ def run_gates(img_bgr: np.ndarray, quality_gate=_DEFAULT_GATE) -> dict:
     `quality_gate` decides gradability: by default the learned quality model
     (quality_model.default_quality_gate) when its checkpoint exists. Pass None
     for the classical checks alone, or any object with assess(img) -> dict
-    (gradable, p_ungradable, threshold, model, reasons). The classical checks
-    always run as a backstop: the learned model can reject an image they pass,
-    never pass one they reject.
+    (gradable, p_ungradable, threshold, model, reasons, optional subscores).
+    The classical checks always run as a backstop: the learned model can
+    reject an image they pass, never pass one they reject. Sub-scores only
+    explain a learned rejection (what to fix); they never decide.
     """
     quality = assess_quality(img_bgr)
 
@@ -79,6 +80,12 @@ def run_gates(img_bgr: np.ndarray, quality_gate=_DEFAULT_GATE) -> dict:
         quality["p_ungradable"] = float(learned["p_ungradable"])
         quality["quality_threshold"] = float(learned["threshold"])
         quality["quality_model"] = learned.get("model")
+        # Why it would be rejected: {sub-score: p_problem, threshold, flagged,
+        # level, problem}. Empty for a model without sub-score heads.
+        quality["quality_subscores"] = dict(learned.get("subscores") or {})
+        # What the photographer should do, most likely cause first ([] if the
+        # learned gate passed the image or has no sub-score heads).
+        quality["recapture"] = list(learned.get("recapture") or [])
         if not learned["gradable"]:
             quality["gradable"] = False
             quality["reasons"] = list(quality["reasons"]) + list(learned["reasons"])

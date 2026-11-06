@@ -167,7 +167,8 @@ def _quality_gate_info() -> dict:
     g = default_quality_gate()
     if g is None:
         return {"source": "classical"}
-    return {"source": "learned", "model": g.version, "threshold": g.threshold}
+    return {"source": "learned", "model": g.version, "threshold": g.threshold,
+            "recapture_reasons": [s.key for s in getattr(g, "subscores", ())]}
 
 
 def create_app(db_path=audit.DB_PATH, image_root="artifacts/images",

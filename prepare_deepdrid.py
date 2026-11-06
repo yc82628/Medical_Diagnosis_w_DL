@@ -25,7 +25,9 @@ What it does:
 
 Writes:
   deepdrid/labels.csv           filename, diagnosis, patient_id, eye, site, human_quality
-  deepdrid/quality_labels.csv   filename, quality (1 good / 0 not diagnosable)
+  deepdrid/quality_labels.csv   filename, quality (1 good / 0 not diagnosable),
+                                clarity, field_definition, artifact (the graders'
+                                sub-scores, raw values; see SUBSCORE_COLUMNS)
   dr.env                        points training here, IDRiD as the external set
 """
 from __future__ import annotations
@@ -41,6 +43,19 @@ SPLITS = {
     "validation": "regular-fundus-validation",
 }
 EVAL_DIR = "Online-Challenge1&2-Evaluation"
+
+# DeepDRiD's quality sub-scores (Readme.docx in each split; Liu et al. 2022).
+# Ordinal, raw values kept as given:
+#   Clarity           1 / 4 / 6 / 8 / 10   higher = sharper: 1 only the level-1
+#                     vascular arch visible ... 10 level-3 arch and all lesions
+#   Field definition  1 / 4 / 6 / 8 / 10   higher = better centred: 1 neither disc
+#                     nor macula ... 6 both in the picture, 8 within 2 PD of the
+#                     centre, 10 within 1 PD
+#   Artifact          0 / 1 / 4 / 6 / 8 / 10  higher = WORSE: 0 none, 4 under 1/4 of
+#                     the image and clear of the macula, 6 over 1/4, 8 over 1/2,
+#                     10 the whole posterior pole
+SUBSCORE_COLUMNS = {"Clarity": "clarity", "Field definition": "field_definition",
+                    "Artifact": "artifact"}
 
 
 def _image_path(root: Path, folder: str, image_id: str) -> str:
@@ -65,25 +80,27 @@ def load(root: Path) -> pd.DataFrame:
         d = pd.read_csv(root / folder / f"{folder}.csv")
         src = pd.read_csv(root / folder / f"regular-fundus-source-{split}.csv")
         site = dict(zip(src["image_id"], src["Source"]))
-        for r in d.itertuples(index=False):
-            image_id = r.image_id
+        for r in d.to_dict("records"):
+            image_id = r["image_id"]
             eye = _eye(image_id)
-            grade = r.left_eye_DR_Level if eye == "left" else r.right_eye_DR_Level
-            rows.append({"image_id": image_id, "patient_id": f"DDR{int(r.patient_id):04d}",
+            grade = r["left_eye_DR_Level"] if eye == "left" else r["right_eye_DR_Level"]
+            rows.append({"image_id": image_id, "patient_id": f"DDR{int(r['patient_id']):04d}",
                          "split": split, "eye": eye, "raw_grade": grade,
-                         "human_quality": int(getattr(r, "_3")),   # "Overall quality"
+                         "human_quality": int(r["Overall quality"]),
                          "site": site.get(image_id, "unknown"),
-                         "filename": _image_path(root, folder, image_id)})
+                         "filename": _image_path(root, folder, image_id),
+                         **{out: r[col] for col, out in SUBSCORE_COLUMNS.items()}})
 
     ev_dr = pd.read_excel(root / EVAL_DIR / "Challenge1_labels.xlsx")
     ev_q = pd.read_excel(root / EVAL_DIR / "Challenge2_labels.xlsx")
-    q = dict(zip(ev_q["image_id"], ev_q["Overall quality"]))
+    q = ev_q.set_index("image_id")
     for r in ev_dr.itertuples(index=False):
         image_id = r.image_id
         rows.append({"image_id": image_id, "patient_id": f"DDR{int(image_id.split('_')[0]):04d}",
                      "split": "evaluation", "eye": _eye(image_id), "raw_grade": r.DR_Levels,
-                     "human_quality": int(q[image_id]), "site": "unknown",
-                     "filename": _image_path(root, EVAL_DIR, image_id)})
+                     "human_quality": int(q.at[image_id, "Overall quality"]), "site": "unknown",
+                     "filename": _image_path(root, EVAL_DIR, image_id),
+                     **{out: q.at[image_id, col] for col, out in SUBSCORE_COLUMNS.items()}})
     return pd.DataFrame(rows)
 
 
@@ -125,6 +142,10 @@ def main(argv=None):
     # Human-rejected = marked not diagnosable, or graded 5 (too poor to grade).
     ql = df[["filename"]].copy()
     ql["quality"] = ((df["human_quality"] == 1) & (df["raw_grade"] != 5)).astype(int)
+    # Sub-scores, appended after the existing columns (quality_model.py learns
+    # them as recapture reasons). Missing stays empty, never a made-up value.
+    for out_col in SUBSCORE_COLUMNS.values():
+        ql[out_col] = df[out_col].astype("Int64")
     ql.to_csv(out / "quality_labels.csv", index=False)
 
     print(f"\n  Wrote {out / 'labels.csv'} ({len(labels)} graded images, "
