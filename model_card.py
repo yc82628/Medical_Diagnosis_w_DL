@@ -161,18 +161,33 @@ def _dme_section(eval_path="artifacts/dme_eval.json",
     return L
 
 
-def _recapture_lines(m: dict, served: dict | None = None) -> list[str]:
-    """Held-out performance of the sub-score heads that name a rejection's cause."""
+def _recapture_lines(m: dict, served: dict | None = None,
+                     explainer: bool = False) -> list[str]:
+    """
+    Held-out performance of the sub-score heads that name a rejection's cause.
+    `explainer`: m is a second model's evaluation, whose heads explain the
+    rejections of the gate described above (quality_model.ExplainedQualityGate).
+    """
     from quality_model import PROBLEM_DEFINITION
 
-    subs, ra = m.get("subscores") or {}, m.get("recapture_reasons_test") or {}
+    subs = m.get("subscores") or {}
+    ra = ((m.get("as_explainer") or {}).get("recapture_reasons_test") if explainer
+          else m.get("recapture_reasons_test")) or {}
     if not subs:
         return []
+    how = ("A second model names the likely cause when the gate above rejects an image, "
+           "so the photographer knows what to fix before retaking. It shares the gate's "
+           f"patient split and input; its {m.get('backbone')} backbone learns DeepDRiD's "
+           "graders' sub-scores (clarity, field definition, artefact) as three ordinal "
+           "heads alongside the overall rating. It runs only on rejected images and never "
+           "decides: gradability is the gate's threshold above, and the table at the end "
+           "of this section shows why." if explainer else
+           "When the model rejects an image it also names the likely cause, so the "
+           "photographer knows what to fix before retaking. Three ordinal heads on the same "
+           "backbone learn DeepDRiD's graders' sub-scores (clarity, field definition, "
+           "artefact) alongside the overall rating.")
     L = ["### Recapture reasons", "",
-         "When the model rejects an image it also names the likely cause, so the "
-         "photographer knows what to fix before retaking. Three ordinal heads on the same "
-         "backbone learn DeepDRiD's graders' sub-scores (clarity, field definition, "
-         "artefact) alongside the overall rating. A cause is named only when its "
+         how + " A cause is named only when its "
          "probability reaches its own threshold, chosen on validation (Youden's J) and "
          "frozen; when none does, the reason says no single cause stood out. The "
          "sub-scores never decide: the gradable decision is the overall threshold above.",
@@ -211,8 +226,11 @@ def _recapture_lines(m: dict, served: dict | None = None) -> list[str]:
     bv, bt, bs = b.get("validation") or {}, b.get("test") or {}, b.get("served") or {}
     v, t = m.get("validation") or {}, m.get("test") or {}
     if bt:
-        L += ["Effect of adding the heads on the overall decision, same patients and the "
-              "same threshold rule:", "",
+        L += [("Why the single-task model decides and the multi-task one only explains: "
+               "on the test set, adding the heads caught fewer ungradable images. Same "
+               "patients and the same threshold rule:" if explainer else
+               "Effect of adding the heads on the overall decision, same patients and the "
+               "same threshold rule:"), "",
               "| | Single-task model before | With sub-score heads |", "|---|---|---|",
               f"| Validation AUROC / caught / false rejects | {_fmt(bv.get('auroc'))} / "
               f"{_pct(bv.get('catch_rate'))} / {_pct(bv.get('false_reject_rate'))} | "
@@ -235,10 +253,35 @@ def _recapture_lines(m: dict, served: dict | None = None) -> list[str]:
     return L
 
 
+def _explainer_lines(explainer_eval, explainer_checkpoint, gate_checkpoint) -> list[str]:
+    """Recapture reasons from a second model (quality_model.ExplainedQualityGate)."""
+    from quality_model import QUALITY_EXPLAINER, QUALITY_EXPLAINER_EVAL
+
+    xe = Path(explainer_eval or QUALITY_EXPLAINER_EVAL)
+    xc = Path(explainer_checkpoint or QUALITY_EXPLAINER)
+    if not xe.exists() or not xc.exists():
+        return []
+    x = json.loads(xe.read_text())
+    if not (x.get("as_explainer") or {}).get("recapture_reasons_test"):
+        return [f"> **Not measured:** `{xc}` names the causes of rejections, but how well it "
+                f"does so with this gate has not been measured. Run "
+                f"`python quality_model.py --evaluate-explainer`.", ""]
+    from predictor import file_sha256
+    L = []
+    ax = x["as_explainer"]
+    if (file_sha256(xc) != ax.get("explainer_checkpoint_sha256")
+            or (Path(gate_checkpoint).exists()
+                and file_sha256(gate_checkpoint) != ax.get("gate_checkpoint_sha256"))):
+        L += [f"> **Stale:** the recapture numbers below were measured on other "
+              f"checkpoints. Re-run `python quality_model.py --evaluate-explainer`.", ""]
+    return L + _recapture_lines(x, None, explainer=True)
+
+
 def _quality_section(model_eval="artifacts/quality_model_eval.json",
                      classical_eval="artifacts/quality_gate_validation.json",
                      checkpoint=None,
-                     served_eval="artifacts/quality_gate_validation_served.json") -> list[str]:
+                     served_eval="artifacts/quality_gate_validation_served.json",
+                     explainer_eval=None, explainer_checkpoint=None) -> list[str]:
     """The image-quality gate: learned model vs classical checks, as measured."""
     from quality_model import QUALITY_CHECKPOINT
 
@@ -291,7 +334,10 @@ def _quality_section(model_eval="artifacts/quality_model_eval.json",
             if file_sha256(ck) != m.get("checkpoint_sha256"):
                 L += [f"> **Stale:** `{ck}` is not the checkpoint these numbers were "
                       f"measured on. Re-run `quality_model.py`.", ""]
-        L += _recapture_lines(m, sv if sv.get("quality_source") == "learned" else None)
+        if m.get("subscores"):
+            L += _recapture_lines(m, sv if sv.get("quality_source") == "learned" else None)
+        else:
+            L += _explainer_lines(explainer_eval, explainer_checkpoint, ck)
         missed = None if t.get("catch_rate") is None else 1 - t["catch_rate"]
         L += [f"{_pct(missed)} of human-rejected test images still reach the DR model "
               "at this false-reject budget. The gate lowers that number; it does not remove "

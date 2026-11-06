@@ -1,6 +1,6 @@
 # Model Card — Diabetic Retinopathy Referral Triage
 
-*Generated 2026-10-22 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
+*Generated 2026-11-06 from `artifacts/evaluation.json`. Every number below is measured, not asserted.*
 
 > **RESEARCH SOFTWARE — NOT A MEDICAL DEVICE.** No regulatory clearance has been sought or obtained. Not for clinical use.
 
@@ -104,21 +104,21 @@ What this means for deployment:
 
 A learned quality model (efficientnet_b0, 448 px, `quality_model.py`) decides gradability, trained on human quality ratings (`deepdrid/quality_labels.csv`). Patients were split 300 train / 100 validation / 100 test; no patient is in more than one.
 
-Its threshold (P(ungradable) ≥ **0.944**) was chosen on validation so that at most 5.0% of human-accepted images are rejected, then frozen. Held-out test, 400 images from 100 patients (214 human-rejected):
+Its threshold (P(ungradable) ≥ **0.915**) was chosen on validation so that at most 5.0% of human-accepted images are rejected, then frozen. Held-out test, 400 images from 100 patients (214 human-rejected):
 
 | | Learned model | Classical checks |
 |---|---|---|
-| AUROC (human reject = positive) | 0.816 (95% CI 0.768–0.864) | 0.499 (sharpness) |
-| Human-rejected images caught | 28.5% (21.3–36.2) | 3.3% |
-| Human-accepted images rejected | 3.2% (0.5–6.9) | 1.1% |
+| AUROC (human reject = positive) | 0.811 (95% CI 0.761–0.864) | 0.499 (sharpness) |
+| Human-rejected images caught | 33.6% (26.0–42.1) | 3.3% |
+| Human-accepted images rejected | 2.7% (0.0–6.4) | 1.1% |
 
 Intervals bootstrap patients. The classical checks (field of view, gross blur, exposure) still run as a backstop: the learned model can reject an image they pass, never pass one they reject.
 
-As served (learned model plus backstop), on the 400 held-out images (`validate_quality_gate.py`, which leaves out every image the model saw): catches **29.9%** of human-rejected images and rejects **4.3%** of human-accepted ones (8 of 186).
+As served (learned model plus backstop), on the 400 held-out images (`validate_quality_gate.py`, which leaves out every image the model saw): catches **34.6%** of human-rejected images and rejects **3.2%** of human-accepted ones (6 of 186).
 
 ### Recapture reasons
 
-When the model rejects an image it also names the likely cause, so the photographer knows what to fix before retaking. Three ordinal heads on the same backbone learn DeepDRiD's graders' sub-scores (clarity, field definition, artefact) alongside the overall rating. A cause is named only when its probability reaches its own threshold, chosen on validation (Youden's J) and frozen; when none does, the reason says no single cause stood out. The sub-scores never decide: the gradable decision is the overall threshold above.
+A second model names the likely cause when the gate above rejects an image, so the photographer knows what to fix before retaking. It shares the gate's patient split and input; its efficientnet_b0 backbone learns DeepDRiD's graders' sub-scores (clarity, field definition, artefact) as three ordinal heads alongside the overall rating. It runs only on rejected images and never decides: gradability is the gate's threshold above, and the table at the end of this section shows why. A cause is named only when its probability reaches its own threshold, chosen on validation (Youden's J) and frozen; when none does, the reason says no single cause stood out. The sub-scores never decide: the gradable decision is the overall threshold above.
 
 Held-out test (same patients as above):
 
@@ -128,19 +128,18 @@ Held-out test (same patients as above):
 | Eye off-centre: re-centre on the macula with the optic disc in view, and retake | field definition 1-6 of 10: optic disc and macula not both within 2 disc diameters of the centre | 74 of 400 | 0.774 (95% CI 0.712–0.833) | 63.5% / 77.9% | 0.271 |
 | Artefact such as an eyelash, eyelid or reflection: ask the patient to open wide, realign to remove reflections, and retake | artefact 6-10 of 10: artefacts cover more than a quarter of the image | 113 of 400 | 0.941 (95% CI 0.918–0.962) | 90.3% / 82.9% | 0.778 |
 
-Of the 67 test images the gate rejected, 100.0% were given a cause. For **88.1%** of those the first cause named is one the graders also scored as a problem (97.0% for any cause named). The graders scored at least one sub-score problem on 97.0% of the images the gate rejected. Causes named, several per image possible: out of focus or hazy 67, eye off-centre 3, artefact such as an eyelash, eyelid or reflection 67. Blur and artefacts usually come together (DeepDRiD graders' Spearman correlation between clarity and artefact is -0.59 on all 2,000 images), so both are often named. The off-centre head is the weakest and seldom fires on rejected images, so a rejected off-centre photo is usually not told to re-centre.
+Of the 75 test images the gate rejected, 100.0% were given a cause. For **90.7%** of those the first cause named is one the graders also scored as a problem (97.3% for any cause named). The graders scored at least one sub-score problem on 97.3% of the images the gate rejected. Causes named, several per image possible: out of focus or hazy 75, eye off-centre 4, artefact such as an eyelash, eyelid or reflection 75. Blur and artefacts usually come together (DeepDRiD graders' Spearman correlation between clarity and artefact is -0.59 on all 2,000 images), so both are often named. The off-centre head is the weakest and seldom fires on rejected images, so a rejected off-centre photo is usually not told to re-centre.
 
-Effect of adding the heads on the overall decision, same patients and the same threshold rule:
+Why the single-task model decides and the multi-task one only explains: on the test set, adding the heads caught fewer ungradable images. Same patients and the same threshold rule:
 
 | | Single-task model before | With sub-score heads |
 |---|---|---|
 | Validation AUROC / caught / false rejects | 0.822 / 31.8% / 4.8% | 0.827 / 31.3% / 4.8% |
 | Test AUROC / caught / false rejects | 0.811 / 33.6% / 2.7% | 0.816 / 28.5% / 3.2% |
-| As served: caught / false rejects | 34.6% / 3.2% (6) | 29.9% / 4.3% (8) |
 
 The threshold rests on about ten accepted validation images (5% of 186), so the caught and false-reject rates at it are coarse: read a difference against the intervals in the first table, not as a point change.
 
-71.5% of human-rejected test images still reach the DR model at this false-reject budget. The gate lowers that number; it does not remove the need for the abstention band and for human review of every output. Trained and tested on one source (DeepDRiD); not yet measured on other cameras.
+66.4% of human-rejected test images still reach the DR model at this false-reject budget. The gate lowers that number; it does not remove the need for the abstention band and for human review of every output. Trained and tested on one source (DeepDRiD); not yet measured on other cameras.
 
 Classical checks alone, against human gradability labels on 2000 images (`validate_quality_gate.py --gate classical`):
 

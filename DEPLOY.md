@@ -52,9 +52,12 @@ using `requirements-gpu.txt` for the GPU build, then:
 ```
 
 **2. Put the trained models in place**: `checkpoints\best_model.pt`,
-`checkpoints\quality_model.pt` and `artifacts\evaluation.json`. They are not
-on GitHub, so copy them from where the model was trained. Without them, the
-service runs in a clearly labelled DEMO mode.
+`checkpoints\quality_model.pt` and `artifacts\evaluation.json`, plus
+`checkpoints\quality_explainer.pt` if you want rejected photos to name their likely
+cause (out of focus, off-centre, eyelash or reflection). They are not on GitHub, so
+copy them from where the model was trained. Without the first three, the service
+runs in a clearly labelled DEMO mode; without the explainer, a rejected photo just
+says "recapture or examine".
 
 **3. Run the first-run setup** in the project folder:
 

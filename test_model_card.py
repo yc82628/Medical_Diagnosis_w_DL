@@ -139,3 +139,37 @@ def test_recapture_lines_compare_with_the_single_task_model():
     assert "| Test AUROC / caught / false rejects | 0.810 / 34.0% / 2.7% | 0.820 / 29.0% / 3.2% |" in text
     assert "| As served: caught / false rejects | 35.0% / 3.2% (6) | 30.0% / 4.3% (8) |" in text
     assert "5% of 186" in text
+
+
+def test_card_describes_a_second_model_that_only_explains(tmp_path):
+    xc, xe, gc = tmp_path / "explainer.pt", tmp_path / "explainer.json", tmp_path / "gate.pt"
+    xc.write_bytes(b"explainer"); gc.write_bytes(b"gate")
+    from predictor import file_sha256
+    x = {"backbone": "efficientnet_b0",
+         "subscores": {"clarity": {"problem": "out of focus", "fix": "refocus",
+                                   "test": {"n": 400, "n_problem": 130}}},
+         "recapture_reasons_test": {"n_gate_rejected": 67, "top_cause_confirmed": 0.881},
+         "test": {"auroc": 0.816, "catch_rate": 0.285, "false_reject_rate": 0.032},
+         "single_task_before": {"test": {"auroc": 0.811, "catch_rate": 0.336,
+                                         "false_reject_rate": 0.027}}}
+    xe.write_text(json.dumps(x))
+    text = "\n".join(model_card._explainer_lines(str(xe), str(xc), str(gc)))
+    assert "Not measured" in text and "--evaluate-explainer" in text
+
+    x["as_explainer"] = {"explainer_checkpoint_sha256": file_sha256(xc),
+                         "gate_checkpoint_sha256": file_sha256(gc),
+                         "recapture_reasons_test": {"n_gate_rejected": 75, "named_a_cause": 1.0,
+                                                    "top_cause_confirmed": 0.907,
+                                                    "any_named_cause_confirmed": 0.973,
+                                                    "human_saw_a_subscore_problem": 0.973}}
+    xe.write_text(json.dumps(x))
+    text = "\n".join(model_card._explainer_lines(str(xe), str(xc), str(gc)))
+    # The explainer's numbers on the GATE's rejections, not on its own (67, 88.1%).
+    assert "Of the 75 test images the gate rejected" in text and "**90.7%**" in text
+    assert "A second model names the likely cause" in text
+    assert "Why the single-task model decides" in text
+    assert "As served" not in text and "Stale" not in text
+
+    gc.write_bytes(b"retrained gate")
+    assert "Stale" in "\n".join(model_card._explainer_lines(str(xe), str(xc), str(gc)))
+    assert model_card._explainer_lines(str(tmp_path / "none.json"), str(xc), str(gc)) == []

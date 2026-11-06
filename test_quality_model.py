@@ -319,3 +319,70 @@ def test_prepare_deepdrid_adds_subscores_and_keeps_columns(tmp_path):
     labels = pd.read_csv(tmp_path / "out" / "labels.csv")
     assert list(labels.columns) == ["filename", "diagnosis", "patient_id", "eye", "site",
                                     "human_quality"]
+
+
+# ---------------------------------------------------------------------------
+# Two models: the gate decides, the explainer only names the cause
+# ---------------------------------------------------------------------------
+
+class _PGate(_Gate):
+    """A gate stub with the attributes ExplainedQualityGate reads."""
+
+    def __init__(self, p, threshold=0.5, seen_files=(), version="gate@1"):
+        super().__init__(p, threshold, seen_files)
+        self.version, self.subscores = version, ()
+
+    def p_ungradable(self, img):
+        self.calls += 1
+        return self.p
+
+
+class _Explainer(_SubGate):
+    def __init__(self, subscores, p=0.0, seen_files=()):
+        super().__init__(p, subscores)
+        self.version, self.seen_files = "explainer@2", set(seen_files)
+
+
+def test_explained_gate_decides_with_the_gate_and_explains_with_the_other():
+    # The explainer's own P(ungradable) (0.0 here) is never used: the gate rejects.
+    ex = _Explainer(_subs(clarity=0.8))
+    g = qm.ExplainedQualityGate(_PGate(0.9, seen_files={"a"}), ex)
+    q = run_gates(_fake_fundus(), quality_gate=g)
+    assert q["gradable"] is False and q["p_ungradable"] == 0.9
+    assert q["quality_model"] == "gate@1"
+    assert q["recapture"][0].startswith("out of focus or hazy: refocus")
+    assert ex.calls == 1
+
+
+def test_explainer_does_not_run_on_an_accepted_image():
+    # Accepted images cost one forward pass, as before: older CPUs.
+    ex = _Explainer(_subs(clarity=0.99, artifact=0.99), p=0.99)
+    q = run_gates(_fake_fundus(), quality_gate=qm.ExplainedQualityGate(_PGate(0.1), ex))
+    assert q["gradable"] is True and q["recapture"] == [] and q["quality_subscores"] == {}
+    assert ex.calls == 0
+
+
+def test_explained_gate_leaves_out_images_either_model_saw():
+    g = qm.ExplainedQualityGate(_PGate(0.9, seen_files={"a"}),
+                                _Explainer(_subs(), seen_files={"b"}))
+    assert g.seen_files == {"a", "b"} and g.threshold == 0.5
+
+
+def test_default_gate_pairs_with_an_explainer_only_when_it_has_heads(tmp_path, monkeypatch):
+    explainer_path = tmp_path / "explainer.pt"
+    explainer_path.write_bytes(b"x")
+    monkeypatch.setenv("DR_QUALITY_EXPLAINER", str(explainer_path))
+    gate = _PGate(0.9)
+
+    monkeypatch.setattr(qm, "LearnedQualityGate", lambda path: _Explainer(_subs()))
+    paired, note = qm._with_explainer(gate)
+    assert isinstance(paired, qm.ExplainedQualityGate) and paired.gate is gate
+    assert "never decides" in note
+
+    headless = _Explainer(_subs())
+    headless.subscores = ()
+    monkeypatch.setattr(qm, "LearnedQualityGate", lambda path: headless)
+    assert qm._with_explainer(gate)[0] is gate
+
+    explainer_path.unlink()
+    assert qm._with_explainer(gate) == (gate, "")

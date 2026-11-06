@@ -916,13 +916,17 @@ function about(c, camBtn){
   const dme = c.payload.dme;
   let title, rows, gradeLine = '', notice, next;
   if (!c.gradable){
-    const why = ((c.payload.quality || {}).reasons || []).map(plainReason);
+    // The likely causes (with what to do) are listed on their own, not again under "Why".
+    const qq = c.payload.quality || {}, rec = qq.recapture || [];
+    const why = (qq.reasons || []).filter(r => !rec.includes(r)).map(plainReason);
+    const causes = rec.length ? `<p><b>Likely cause and what to do:</b></p><ul>${rec.map(r =>
+      `<li>${esc(plainReason(r).replace(/^./, ch => ch.toUpperCase()))}</li>`).join('')}</ul>` : '';
     title = 'The photo could not be graded';
     rows = null;
     notice = null;
     next = 'Recapture the photo. If it still cannot be graded, the eye needs examining another way under your local pathway: an ungradable photo is <b>not</b> a normal result.';
-    gradeLine = `${why.length ? `<p><b>Why:</b> ${esc(why.join('; '))}.</p>` : ''}
-      <p><b>Common causes:</b></p><ul>${UNGRADABLE_CAUSES.map(x => `<li>${x}</li>`).join('')}</ul>`;
+    gradeLine = `${why.length ? `<p><b>Why:</b> ${esc(why.join('; '))}.</p>` : ''}${causes}
+      <p><b>${rec.length ? 'Other common causes' : 'Common causes'}:</b></p><ul>${UNGRADABLE_CAUSES.map(x => `<li>${x}</li>`).join('')}</ul>`;
   } else if (c.decision === 'REFER'){
     title = 'Referable diabetic retinopathy suspected (moderate or worse)';
     rows = [2, 3, 4];

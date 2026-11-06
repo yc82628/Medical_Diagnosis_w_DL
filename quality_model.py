@@ -28,6 +28,13 @@ field definition, artefact; prepare_deepdrid.py writes them), the same backbone
 also learns them as ordinal heads (multi-task). They never change the decision,
 which stays P(ungradable) >= threshold; they say what to fix when it rejects.
 
+Two models in service: the multi-task model caught fewer ungradable test
+images than the single-task one, so the single-task model at
+checkpoints/quality_model.pt keeps the decision, and a multi-task model at
+checkpoints/quality_explainer.pt (train with --out/--eval-out pointing there)
+only names the cause of its rejections (ExplainedQualityGate). Measure that
+pairing with --evaluate-explainer.
+
 Everything above the training section is torch-free, so the serving wiring and
 the threshold logic are unit-tested without torch.
 """
@@ -48,6 +55,10 @@ from preprocessing import _pad_to_square, circle_crop
 
 QUALITY_CHECKPOINT = "checkpoints/quality_model.pt"
 QUALITY_EVAL = "artifacts/quality_model_eval.json"
+# Optional second model that only names the cause of a rejection (see
+# ExplainedQualityGate): a multi-task checkpoint trained with sub-score heads.
+QUALITY_EXPLAINER = "checkpoints/quality_explainer.pt"
+QUALITY_EXPLAINER_EVAL = "artifacts/quality_explainer_eval.json"
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +410,38 @@ def assessment(p: float, threshold: float, model: str, subscores: dict,
             "subscores": subscores, "recapture": recapture, "reasons": reasons}
 
 
+class ExplainedQualityGate:
+    """
+    Gradability from one model, the cause of a rejection from another.
+
+    On the held-out test the single-task model catches more ungradable images
+    than the multi-task one (33.6% vs 28.5%, false rejects 2.7% vs 3.2%), so it
+    keeps the decision; the multi-task model's sub-score heads only name the
+    likely cause of what the gate rejected. The explainer runs on rejections
+    only, so an accepted image costs one forward pass, as before -- which
+    matters on the older CPUs this is meant to run on.
+    """
+
+    def __init__(self, gate, explainer):
+        self.gate, self.explainer = gate, explainer
+        self.threshold = gate.threshold
+        self.version = gate.version
+        self.subscores = explainer.subscores
+        # Validators leave out anything EITHER model trained or was tuned on.
+        self.seen_files = set(gate.seen_files) | set(explainer.seen_files)
+
+    def p_ungradable(self, img_bgr: np.ndarray) -> float:
+        return self.gate.p_ungradable(img_bgr)
+
+    def assess(self, img_bgr: np.ndarray) -> dict:
+        p = self.gate.p_ungradable(img_bgr)
+        subs = self.explainer.assess(img_bgr)["subscores"] if p >= self.threshold else {}
+        out = assessment(p, self.threshold, self.version, subs, self.subscores)
+        if subs:
+            out["explained_by"] = Path(getattr(self.explainer, "path", self.explainer.version)).name
+        return out
+
+
 def subscores_from_checkpoint(ck: dict):
     """(specs, thresholds) stored in a checkpoint; ((), {}) when it has none."""
     known = {s.key: s for s in SUBSCORES}
@@ -442,11 +485,32 @@ def default_quality_gate():
                         note += (" Rejections name a likely cause: "
                                  + ", ".join(s.key.replace("_", " ") for s in gate.subscores)
                                  + ".")
+                    else:
+                        gate, extra = _with_explainer(gate)
+                        note += extra
                 except ImportError:
                     note = (f"PyTorch is not installed, so the learned quality model at "
                             f"{path} cannot be loaded: classical image-quality checks only.")
             _default.update(loaded=True, gate=gate, note=note)
         return _default["gate"]
+
+
+def _with_explainer(gate):
+    """
+    (gate, note): the gate paired with the explainer at DR_QUALITY_EXPLAINER
+    (default checkpoints/quality_explainer.pt) when that checkpoint exists and
+    has sub-score heads; otherwise the gate unchanged.
+    """
+    path = Path(os.environ.get("DR_QUALITY_EXPLAINER") or QUALITY_EXPLAINER)
+    if not path.exists():
+        return gate, ""
+    ex = LearnedQualityGate(path)
+    if not ex.subscores:
+        return gate, f" {path} has no sub-score heads, so rejections name no cause."
+    return ExplainedQualityGate(gate, ex), (
+        f" Rejections name a likely cause ("
+        + ", ".join(s.key.replace("_", " ") for s in ex.subscores)
+        + f") from {path.name}, which explains and never decides.")
 
 
 def default_quality_note() -> str:
@@ -681,7 +745,14 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=QUALITY_CHECKPOINT)
     ap.add_argument("--eval-out", default=QUALITY_EVAL)
+    ap.add_argument("--evaluate-explainer", action="store_true",
+                    help=f"no training: measure {QUALITY_EXPLAINER} naming the causes of "
+                         f"{QUALITY_CHECKPOINT}'s rejections on the held-out test patients")
     args = ap.parse_args(argv)
+    if args.evaluate_explainer:
+        return evaluate_explainer(labels=args.labels, images=args.images,
+                                  filename_col=args.filename_col, label_col=args.label_col,
+                                  seed=args.seed)
 
     cfg = QualityInputConfig(image_size=args.image_size)
     df = pd.read_csv(args.labels)
@@ -859,6 +930,58 @@ def reason_agreement(gate_rejected, sub_logits, sub_levels, specs, thresholds) -
         "per_cause_precision": {k: (v["confirmed"] / v["named"] if v["named"] else nan)
                                 for k, v in per.items()},
     }
+
+
+def evaluate_explainer(gate_path=QUALITY_CHECKPOINT, explainer_path=QUALITY_EXPLAINER,
+                       labels="deepdrid/quality_labels.csv",
+                       images="deepdrid/repo/regular_fundus_images",
+                       filename_col="filename", label_col="quality", seed=0,
+                       out=QUALITY_EXPLAINER_EVAL) -> dict:
+    """
+    Recapture reasons as served by ExplainedQualityGate: the gate's rejections
+    on the held-out test patients, each explained by the explainer's heads, and
+    checked against the graders' sub-scores. Adds an "as_explainer" block to
+    the explainer's own evaluation file (written when it was trained).
+
+        python quality_model.py --evaluate-explainer
+    """
+    import pandas as pd
+
+    from predictor import file_sha256
+
+    gate, ex = LearnedQualityGate(gate_path), LearnedQualityGate(explainer_path)
+    if not ex.subscores:
+        raise SystemExit(f"  {explainer_path} has no sub-score heads: nothing to explain with.")
+    df = pd.read_csv(labels)
+    files = df[filename_col].astype(str).tolist()
+    rejected = (df[label_col].astype(int) == 0).to_numpy()
+    masks = split_patients(files, rejected, seed=seed)
+    seen = gate.seen_files | ex.seen_files
+    test = [i for i, b in enumerate(masks["test"]) if b and files[i] not in seen]
+    p, sl = [], []
+    for i in test:
+        img = cv2.imread(str(Path(images) / files[i]), cv2.IMREAD_COLOR)
+        p.append(gate.p_ungradable(img))
+        sl.append(ex.logits(img)[1:])
+    sub = np.stack([subscore_targets(df[s.key], s) for s in ex.subscores], axis=1)[test]
+    ra = reason_agreement(np.asarray(p) >= gate.threshold, np.stack(sl), sub,
+                          ex.subscores, ex.sub_thresholds)
+    path = Path(out)
+    rep = json.loads(path.read_text()) if path.exists() else {}
+    rep["as_explainer"] = {
+        "gate_checkpoint_sha256": file_sha256(gate_path), "gate_model": gate.version,
+        "gate_threshold": gate.threshold,
+        "explainer_checkpoint_sha256": file_sha256(explainer_path),
+        "n_test_images": len(test), "recapture_reasons_test": ra,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(rep, indent=2))
+    print(f"  {len(test)} held-out test images; the gate rejected {ra['n_gate_rejected']}.")
+    print(f"  Given a cause: {ra['named_a_cause']:.1%}; first cause matches the graders: "
+          f"{ra['top_cause_confirmed']:.1%}; any cause named matches: "
+          f"{ra['any_named_cause_confirmed']:.1%}")
+    print(f"  Wrote {path}")
+    return rep
 
 
 def gate_metrics_fn(key: str, threshold: float = 0.5):

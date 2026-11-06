@@ -292,7 +292,10 @@ input) checks guard the input:
   gradability; the classical checks above stay as a backstop. A rejection names the
   likely cause and the fix ("out of focus or hazy: refocus...", "eye off-centre:
   re-centre on the macula...", "artefact such as an eyelash..."), from sub-score heads
-  measured on held-out patients (see `MODEL_CARD.md`).
+  measured on held-out patients (see `MODEL_CARD.md`). Two models do this: the
+  single-task `checkpoints/quality_model.pt` decides (it catches more unusable photos),
+  and the multi-task `checkpoints/quality_explainer.pt`, when present, only names the
+  cause of its rejections. Measure the pair with `python quality_model.py --evaluate-explainer`.
 - **Anatomy gate** (`verify_is_fundus`) — colour, circular field of view, and
   optic-disc cues confirm the upload is a retina, not a wall, a document, or an
   X-ray. Known limitation, documented in the code: a smooth warm-toned circular
